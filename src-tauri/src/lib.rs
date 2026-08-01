@@ -2,11 +2,23 @@ mod commands;
 mod document;
 mod error;
 
+use tauri::{Emitter, Manager};
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
+            // 恢复并聚焦主窗口（最小化时解除）
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.show();
+                let _ = window.unminimize();
+                let _ = window.set_focus();
+            }
+            // 将第二实例参数转发给前端统一处理
+            let _ = app.emit("external-file-open", args);
+        }))
         .invoke_handler(tauri::generate_handler![
             commands::file::read_file,
             commands::file::file_exists,
