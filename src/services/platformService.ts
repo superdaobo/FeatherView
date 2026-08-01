@@ -9,8 +9,10 @@ import { open as dialogOpen } from '@tauri-apps/plugin-dialog'
 import { getCurrentWebview } from '@tauri-apps/api/webview'
 import type { DragDropEvent } from '@tauri-apps/api/webview'
 import type { Event } from '@tauri-apps/api/event'
+import { listen } from '@tauri-apps/api/event'
 import type { DocumentSource } from '../types'
 import { createSourceId, getExtension, getFileName } from '../utils'
+import { parseLaunchArgs } from './launchArgs'
 
 export const SUPPORTED_EXTENSIONS = [
   // Markdown
@@ -70,7 +72,7 @@ export async function pickFile(): Promise<DocumentSource | null> {
 }
 
 export type DragDropHandler = (
-  source: DocumentSource | null,
+  sources: DocumentSource[] | null,
   kind: 'enter' | 'over' | 'drop' | 'leave',
 ) => void
 
@@ -90,12 +92,7 @@ export function onFileDragDrop(handler: DragDropHandler): () => void {
         return
       }
       if (e.type === 'drop') {
-        const path = e.paths[0]
-        if (path) {
-          handler(createSourceFromPath(path), 'drop')
-        } else {
-          handler(null, 'drop')
-        }
+        handler(e.paths.map((p) => createSourceFromPath(p)), 'drop')
         return
       }
       // leave
@@ -108,22 +105,79 @@ export function onFileDragDrop(handler: DragDropHandler): () => void {
 }
 
 /**
- * 启动参数 / 文件关联打开入口（预留统一处理）。
- * 桌面端通过 Rust command 获取进程参数，过滤出第一个存在的文件路径。
- * 移动端后续在此处理分享/打开 intent 的 content:// 与 file:// URI。
+ * 启动参数 / 文件关联打开入口（冷启动）。
+ * 通过 Rust startup_args 获取进程参数，解析出第一个有效文件。
  */
 export async function resolveInitialDocument(): Promise<DocumentSource | null> {
   if (!isTauri()) return null
   try {
     const args = await invoke<string[]>('startup_args')
-    for (const arg of args.slice(1)) {
-      if (arg && !arg.startsWith('-')) {
-        const exists = await invoke<boolean>('file_exists', { path: arg })
-        if (exists) return createSourceFromPath(arg)
-      }
-    }
+    const { files } = await parseLaunchArgs(args, pathExists)
+    if (files.length > 0) return createSourceFromPath(files[0])
   } catch {
-    // 忽略：无启动参数时静默返回 null
+    // 无启动参数或解析异常时静默返回 null
   }
   return null
+}
+
+async function pathExists(path: string): Promise<boolean> {
+  try {
+    return await invoke<boolean>('file_exists', { path })
+  } catch {
+    return false
+  }
+}
+
+/** 检查路径是否为文件（排除文件夹） */
+export async function isFilePath(path: string): Promise<boolean> {
+  if (!isTauri()) return true
+  try {
+    const meta = await invoke<{ size: number; modifiedAt?: number; isFile: boolean }>('file_metadata', {
+      path,
+    })
+    return meta.isFile
+  } catch {
+    return false
+  }
+}
+
+/**
+ * 外部文件打开事件监听器（第二实例参数）。
+ * 返回取消订阅函数。
+ */
+export async function initializeExternalOpenListener(
+  handler: (sources: DocumentSource[]) => void,
+): Promise<() => void> {
+  if (!isTauri()) return () => {}
+  const unlisten = await listen<string[]>('external-file-open', (event: Event<string[]>) => {
+    void (async () => {
+      try {
+        const { files } = await parseLaunchArgs(event.payload, pathExists)
+        if (files.length > 0) {
+          handler(files.map((p) => createSourceFromPath(p)))
+        }
+      } catch {
+        // 参数异常静默，不允许影响应用
+      }
+    })()
+  })
+  return unlisten
+}
+
+/**
+ * 文档唯一标识：Windows 路径规范化（统一分隔符、去尾分隔符、小写归一）。
+ * 移动端 URI 走同一接口。
+ */
+export function getDocumentIdentity(source: DocumentSource): string {
+  const raw = source.path ?? source.uri ?? ''
+  if (!raw) return `uri:${source.id}`
+  if (source.path) {
+    // 统一为反斜杠，去除末尾分隔符（保留盘符根如 C:\），小写归一（Windows 大小写不敏感）
+    let normalized = raw.replace(/\//g, '\\')
+    while (normalized.length > 3 && normalized.endsWith('\\')) {
+      normalized = normalized.slice(0, -1)
+    }
+    return `path:${normalized.toLowerCase()}`
+  }
+  return `uri:${raw}`
 }

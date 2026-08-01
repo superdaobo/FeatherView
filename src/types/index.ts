@@ -9,6 +9,24 @@ export interface RecentFile {
   size?: number
 }
 
+/** 阅读位置记录（v0.1.1） */
+export interface ReadingPositionRecord {
+  /** 规范化后的文件唯一标识（Windows 路径小写归一） */
+  sourceId: string
+  path?: string
+  uri?: string
+  rendererId: string
+  /** 绝对滚动位置（px） */
+  scrollTop: number
+  /** 相对滚动比例（0-1，主恢复依据） */
+  scrollRatio: number
+  viewportHeight: number
+  contentHeight: number
+  /** Markdown 最近标题锚点（可选） */
+  headingId?: string
+  updatedAt: number
+}
+
 /**
  * 统一的文件入口抽象。
  * Windows 使用 path；Android/iOS 移动端使用 uri（content:// 或 file://）。
@@ -59,6 +77,8 @@ export interface ReaderSettings {
   wordWrap: boolean
   showLineNumbers: boolean
   fontFamily: 'system' | 'serif' | 'monospace'
+  /** 记住并恢复阅读位置 */
+  rememberReadingPosition: boolean
 }
 
 /** 渲染器统一接口：新增文件类型只需实现该定义并注册 */

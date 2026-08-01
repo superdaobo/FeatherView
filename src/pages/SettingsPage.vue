@@ -7,6 +7,7 @@ import { useRouter } from 'vue-router'
 import { ArrowLeft, Sun, Moon, Monitor } from 'lucide-vue-next'
 import { useSettingsStore } from '../stores/settings'
 import { useToast } from '../composables/useToast'
+import { clearPositions } from '../services/readingPositionService'
 import type { ReaderSettings } from '../types'
 
 const router = useRouter()
@@ -41,6 +42,13 @@ function adjustLineHeight(delta: number): void {
 
 function showSaved(): void {
   show('设置已保存', { kind: 'success', duration: 1500 })
+}
+
+function clearReadingPositions(): void {
+  if (window.confirm('确定清除所有阅读位置记录吗？此操作不影响最近文件与其他设置。')) {
+    clearPositions()
+    show('已清除阅读位置记录', { kind: 'success', duration: 2000 })
+  }
 }
 </script>
 
@@ -222,6 +230,35 @@ function showSaved(): void {
             <span class="switch-track" />
           </label>
         </div>
+
+        <div class="setting-row">
+          <div class="setting-label">
+            <span>记住阅读位置</span>
+            <small>重新打开文档时回到上次阅读位置</small>
+          </div>
+          <label class="switch">
+            <input
+              v-model="settingsStore.settings.rememberReadingPosition"
+              type="checkbox"
+              @change="showSaved"
+            >
+            <span class="switch-track" />
+          </label>
+        </div>
+
+        <div class="setting-row">
+          <div class="setting-label">
+            <span>清除阅读位置记录</span>
+            <small>删除所有已保存的阅读位置，不影响最近文件与其他设置</small>
+          </div>
+          <button
+            class="btn btn-small"
+            type="button"
+            @click="clearReadingPositions"
+          >
+            清除记录
+          </button>
+        </div>
       </section>
 
       <section class="settings-section">
@@ -229,7 +266,7 @@ function showSaved(): void {
           关于
         </h2>
         <div class="about-box">
-          <p><strong>FeatherView 轻阅</strong> v0.1.0</p>
+          <p><strong>FeatherView 轻阅</strong> v0.1.1</p>
           <p class="about-text">
             轻量、本地优先的 Markdown 与文件阅读器。<br>
             应用默认在本地处理文件，不会上传、分析或收集你打开的文件内容。

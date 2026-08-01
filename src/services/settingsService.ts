@@ -14,6 +14,7 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
   wordWrap: true,
   showLineNumbers: false,
   fontFamily: 'system',
+  rememberReadingPosition: true,
 }
 
 export function loadSettings(): ReaderSettings {
@@ -49,6 +50,7 @@ export function sanitizeSettings(s: ReaderSettings): ReaderSettings {
   settings.wordWrap = Boolean(settings.wordWrap)
   settings.showLineNumbers = Boolean(settings.showLineNumbers)
   if (!['system', 'serif', 'monospace'].includes(settings.fontFamily)) settings.fontFamily = 'system'
+  settings.rememberReadingPosition = settings.rememberReadingPosition !== false
   return settings
 }
 

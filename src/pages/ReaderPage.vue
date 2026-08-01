@@ -33,8 +33,10 @@ import type { RendererDefinition } from '../types'
 import { useShortcuts } from '../composables/useShortcuts'
 import { useDocumentSearch } from '../composables/useDocumentSearch'
 import { useToast } from '../composables/useToast'
+import { useReadingPosition } from '../composables/useReadingPosition'
 import { pickFile } from '../services/platformService'
 import { checkFileExists } from '../services/documentService'
+import { DEFAULT_WINDOW_TITLE, setWindowTitle } from '../services/windowService'
 import { countLines, countWords, formatDate, formatFileSize } from '../utils'
 import type { RecentFile } from '../types'
 
@@ -130,6 +132,27 @@ function toggleRight(): void {
   }
 }
 
+// ---------- 阅读位置 ----------
+const position = useReadingPosition(
+  contentContainer,
+  computed(() => documentStore.source),
+  computed(() => documentStore.meta),
+  computed(() => renderer.value?.id),
+  computed(() => settingsStore.settings.rememberReadingPosition),
+  () => {
+    show('已恢复上次阅读位置', { kind: 'success', duration: 2000 })
+  },
+)
+
+// ---------- 窗口标题 ----------
+watch(
+  () => documentStore.source?.name,
+  (name) => {
+    setWindowTitle(name ? `${name} — FeatherView` : DEFAULT_WINDOW_TITLE)
+  },
+  { immediate: true },
+)
+
 // ---------- 目录跳转 ----------
 function jumpToHeading(id: string): void {
   const el = contentContainer.value
@@ -143,6 +166,7 @@ function jumpToHeading(id: string): void {
 
 // ---------- 文件操作 ----------
 async function openFromPicker(): Promise<void> {
+  position.saveNow()
   const source = await pickFile()
   if (source) {
     const ok = await documentStore.open(source)
@@ -162,6 +186,7 @@ async function openRecent(file: RecentFile): Promise<void> {
     })
     return
   }
+  position.saveNow()
   await documentStore.open(recentStore.toSource(file))
   toc.value = []
   runSearchAfterRender()
@@ -320,6 +345,7 @@ function onRendererMounted(instance: RendererInstance | null): void {
         class="btn-icon"
         type="button"
         title="打开文件 (Ctrl+O)"
+        :disabled="documentStore.isLoading"
         @click="openFromPicker"
       >
         <FolderOpen :size="17" />

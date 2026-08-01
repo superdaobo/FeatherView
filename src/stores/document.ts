@@ -19,6 +19,8 @@ export const useDocumentStore = defineStore('document', () => {
 
   /** 打开文档：统一入口，所有打开方式都汇聚到这里 */
   async function open(sourceInput: DocumentSource): Promise<boolean> {
+    // 加载中忽略重复打开请求（防止连点/事件竞态）
+    if (status.value === 'loading') return false
     status.value = 'loading'
     source.value = sourceInput
     meta.value = null
