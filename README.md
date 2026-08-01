@@ -1,5 +1,9 @@
 # FeatherView / 轻阅
 
+[![Build](https://github.com/superdaobo/FeatherView/actions/workflows/build.yml/badge.svg)](https://github.com/superdaobo/FeatherView/actions/workflows/build.yml)
+[![Release](https://img.shields.io/github/v/release/superdaobo/FeatherView)](https://github.com/superdaobo/FeatherView/releases)
+[![License](https://img.shields.io/github/license/superdaobo/FeatherView)](LICENSE)
+
 轻量、本地优先、无账号、无广告的 Markdown 与常见文件阅读器。
 
 基于 Tauri 2 + Vue 3 构建，支持 Windows（Android / iOS 架构兼容，后续版本发布）。
@@ -178,4 +182,6 @@ FeatherView 默认在本地处理文件。
 ## 构建产物体积
 
 - 前端首屏 bundle：约 129 KB（gzip 48 KB），渲染器全部懒加载
-- Windows 安装包（NSIS）：见 src-tauri/target/release/bundle/nsis/（构建后记录实际体积）
+- Windows 可执行文件（GitHub Actions Release 构建）：约 3.1 MB
+- Windows NSIS 安装包（GitHub Actions Release 构建）：约 1.3 MB
+- 安装包可从 [Releases](https://github.com/superdaobo/FeatherView/releases) 下载
