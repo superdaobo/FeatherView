@@ -1,18 +1,19 @@
 <script setup lang="ts">
 /**
  * 应用根组件：路由视图 + 全局错误边界 + Toast 容器 + 全局拖拽/外部文件打开。
+ * 统一打开入口走 tabs store（多标签：同源去重激活或新开）。
  */
 import { onBeforeUnmount, onErrorCaptured, onMounted, ref, watch } from 'vue'
 import { RouterView, useRouter } from 'vue-router'
 import { useToast } from './composables/useToast'
-import { useDocumentStore } from './stores/document'
+import { useTabsStore } from './stores/tabs'
 import { useExternalFileOpen } from './composables/useExternalFileOpen'
 import { isFilePath, onFileDragDrop } from './services/platformService'
 import { DEFAULT_WINDOW_TITLE, setWindowTitle } from './services/windowService'
 import type { DocumentSource } from './types'
 
 const router = useRouter()
-const documentStore = useDocumentStore()
+const tabsStore = useTabsStore()
 const { state: toastState, dismiss, show } = useToast()
 
 const fatalError = ref<string | null>(null)
@@ -33,10 +34,10 @@ window.addEventListener('unhandledrejection', (e) => {
   console.error('[FeatherView] 未处理的 Promise 拒绝:', e.reason)
 })
 
-// ---------- 统一打开文件（所有入口汇聚） ----------
+// ---------- 统一打开文件（所有入口汇聚：去重激活已有标签或新开） ----------
 async function openFile(source: DocumentSource): Promise<void> {
-  const ok = await documentStore.open(source)
-  if (ok && router.currentRoute.value.name !== 'reader') {
+  await tabsStore.openTab(source)
+  if (router.currentRoute.value.name !== 'reader') {
     await router.push('/reader')
   }
 }
@@ -117,7 +118,7 @@ function reloadApp(): void {
       class="drag-overlay"
     >
       <div class="drag-box">
-        松开以使用 FeatherView 打开
+        松开以使用览匣 FeatherView 打开
       </div>
     </div>
 

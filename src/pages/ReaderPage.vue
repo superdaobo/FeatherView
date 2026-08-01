@@ -1,8 +1,9 @@
 <script setup lang="ts">
 /**
- * 阅读页面：三栏自适应布局。
+ * 阅读页面：多标签页 + 三栏自适应布局。
+ * 顶部：工具栏 + 标签栏（激活/关闭/固定标记）
  * 左栏：文件信息与最近文件（可收起）
- * 中栏：阅读区（渲染器分发）
+ * 中栏：阅读区（渲染器分发，:key=activeTabId 隔离标签状态）
  * 右栏：Markdown 目录（可收起）
  */
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
@@ -24,10 +25,13 @@ import {
   X,
   Copy,
   PanelLeft,
+  Star,
 } from 'lucide-vue-next'
 import { useDocumentStore } from '../stores/document'
 import { useSettingsStore } from '../stores/settings'
 import { useRecentFilesStore } from '../stores/recentFiles'
+import { useTabsStore } from '../stores/tabs'
+import { useFavoritesStore } from '../stores/favorites'
 import { matchRenderer } from '../renderers/registry'
 import type { RendererDefinition } from '../types'
 import { useShortcuts } from '../composables/useShortcuts'
@@ -44,6 +48,8 @@ const router = useRouter()
 const documentStore = useDocumentStore()
 const settingsStore = useSettingsStore()
 const recentStore = useRecentFilesStore()
+const tabsStore = useTabsStore()
+const favoritesStore = useFavoritesStore()
 const { show } = useToast()
 
 // ---------- 渲染器 ----------
@@ -72,11 +78,6 @@ function runSearchAfterRender(): void {
     if (search.active.value) search.runSearch()
   })
 }
-
-watch(
-  () => documentStore.result?.content,
-  () => runSearchAfterRender(),
-)
 
 // ---------- 阅读进度 ----------
 const progress = ref(0)
@@ -148,7 +149,7 @@ const position = useReadingPosition(
 watch(
   () => documentStore.source?.name,
   (name) => {
-    setWindowTitle(name ? `${name} — FeatherView` : DEFAULT_WINDOW_TITLE)
+    setWindowTitle(name ? `${name} — 览匣 FeatherView` : DEFAULT_WINDOW_TITLE)
   },
   { immediate: true },
 )
@@ -164,16 +165,46 @@ function jumpToHeading(id: string): void {
   }
 }
 
+// ---------- 多标签页 ----------
+function onTabClick(tabId: string): void {
+  if (tabId === tabsStore.activeTabId) return
+  search.close()
+  position.saveNow()
+  toc.value = []
+  void tabsStore.activateTab(tabId)
+}
+
+function onTabClose(tabId: string): void {
+  search.close()
+  position.saveNow()
+  void tabsStore.closeTab(tabId)
+}
+
+/** 全关回首页（仅由用户关闭触发；直接访问 /reader 且无标签时不跳转） */
+watch(
+  () => tabsStore.activeTabId,
+  (current, previous) => {
+    if (current === null && previous !== null) goHome()
+  },
+)
+
+// ---------- 收藏 ----------
+const isFavorite = computed(() => (documentStore.source ? favoritesStore.isStarred(documentStore.source) : false))
+
+function toggleFavorite(): void {
+  if (!documentStore.source) return
+  const added = favoritesStore.toggle(documentStore.source)
+  show(added ? '已收藏' : '已取消收藏', { kind: 'success', duration: 1500 })
+}
+
 // ---------- 文件操作 ----------
 async function openFromPicker(): Promise<void> {
+  search.close()
   position.saveNow()
   const source = await pickFile()
   if (source) {
-    const ok = await documentStore.open(source)
-    if (ok) {
-      toc.value = []
-      runSearchAfterRender()
-    }
+    await tabsStore.openTab(source)
+    toc.value = []
   }
 }
 
@@ -186,10 +217,10 @@ async function openRecent(file: RecentFile): Promise<void> {
     })
     return
   }
+  search.close()
   position.saveNow()
-  await documentStore.open(recentStore.toSource(file))
+  await tabsStore.openTab(recentStore.toSource(file))
   toc.value = []
-  runSearchAfterRender()
 }
 
 function copyErrorDetail(): void {
@@ -209,15 +240,24 @@ function goSettings(): void {
 }
 
 // ---------- 状态栏数据 ----------
-const lineCount = computed(() => {
-  const content = documentStore.result?.content
-  return content !== undefined ? countLines(content) : 0
-})
+const lineCount = ref(0)
+const wordCount = ref(0)
 
-const wordCount = computed(() => {
-  const content = documentStore.result?.content
-  return content !== undefined ? countWords(content) : 0
-})
+function onStats(stats: { lines: number; words: number }): void {
+  lineCount.value = stats.lines
+  wordCount.value = stats.words
+}
+
+watch(
+  () => documentStore.result?.content,
+  (content) => {
+    if (content !== undefined) {
+      lineCount.value = countLines(content)
+      wordCount.value = countWords(content)
+    }
+    runSearchAfterRender()
+  },
+)
 
 // ---------- 快捷键 ----------
 useShortcuts({
@@ -344,6 +384,16 @@ function onRendererMounted(instance: RendererInstance | null): void {
       <button
         class="btn-icon"
         type="button"
+        title="收藏当前文件"
+        :class="{ active: isFavorite }"
+        :disabled="!documentStore.source"
+        @click="toggleFavorite"
+      >
+        <Star :size="17" />
+      </button>
+      <button
+        class="btn-icon"
+        type="button"
         title="打开文件 (Ctrl+O)"
         :disabled="documentStore.isLoading"
         @click="openFromPicker"
@@ -359,6 +409,41 @@ function onRendererMounted(instance: RendererInstance | null): void {
         <Settings :size="17" />
       </button>
     </header>
+
+    <!-- 标签栏 -->
+    <div
+      v-if="tabsStore.tabs.length > 0"
+      class="tab-strip"
+    >
+      <button
+        v-for="tab in tabsStore.tabs"
+        :key="tab.tabId"
+        class="tab-item"
+        :class="{ active: tab.tabId === tabsStore.activeTabId }"
+        type="button"
+        :title="tab.source.path ?? tab.source.name"
+        @click="onTabClick(tab.tabId)"
+      >
+        <span
+          v-if="tab.pinned"
+          class="tab-pin"
+          title="固定"
+        >📌</span>
+        <span class="tab-name">{{ tab.source.name }}</span>
+        <span
+          v-if="tab.source.extension"
+          class="tab-ext"
+        >.{{ tab.source.extension }}</span>
+        <span
+          class="tab-close"
+          role="button"
+          :title="`关闭 ${tab.source.name}`"
+          @click.stop="onTabClose(tab.tabId)"
+        >
+          <X :size="13" />
+        </span>
+      </button>
+    </div>
 
     <div class="reader-body">
       <!-- 左栏：文件信息 + 最近文件 -->
@@ -506,17 +591,20 @@ function onRendererMounted(instance: RendererInstance | null): void {
           </div>
         </div>
 
-        <!-- 渲染器 -->
+        <!-- 渲染器（key 隔离标签状态；search-active 仅 text 渲染器启用虚拟滚动降级） -->
         <template v-else-if="documentStore.isReady && documentStore.meta && documentStore.result">
           <component
             :is="renderer?.component"
+            :key="tabsStore.activeTabId ?? 'none'"
             :ref="onRendererMounted"
             :document="documentStore.meta"
             :content="documentStore.result.content ?? ''"
             :bytes-base64="documentStore.result.bytesBase64"
+            :search-active="renderer?.id === 'text' ? search.active.value : undefined"
             @toc="onToc"
             @reopen="openFromPicker"
             @home="goHome"
+            @stats="onStats"
           />
         </template>
 
@@ -682,6 +770,91 @@ function onRendererMounted(instance: RendererInstance | null): void {
   min-width: 22px;
   text-align: center;
   font-variant-numeric: tabular-nums;
+}
+
+/* ---------- 标签栏 ---------- */
+.tab-strip {
+  display: flex;
+  align-items: stretch;
+  gap: 2px;
+  padding: 4px 8px 0;
+  background: var(--bg-toolbar);
+  border-bottom: 1px solid var(--border);
+  overflow-x: auto;
+  flex-shrink: 0;
+}
+
+.tab-item {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  max-width: 220px;
+  padding: 6px 8px 6px 10px;
+  border: 1px solid var(--border);
+  border-bottom: none;
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  background: var(--bg-panel);
+  color: var(--text-secondary);
+  font-size: 12.5px;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.tab-item:hover {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+
+.tab-item.active {
+  background: var(--bg);
+  color: var(--text);
+  border-color: var(--border-strong);
+  font-weight: 600;
+}
+
+.tab-item.active::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 1px;
+  background: var(--bg);
+}
+
+.tab-pin {
+  font-size: 11px;
+  flex-shrink: 0;
+}
+
+.tab-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tab-ext {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--text-faint);
+  flex-shrink: 0;
+}
+
+.tab-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1px;
+  border-radius: 4px;
+  color: var(--text-faint);
+  flex-shrink: 0;
+}
+
+.tab-close:hover {
+  background: var(--bg-active);
+  color: var(--text);
 }
 
 .reader-body {

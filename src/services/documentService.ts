@@ -1,9 +1,12 @@
 /**
  * 文档服务：统一文件读取入口。
  * 所有文件读取都经由 Rust read_file 命令，错误统一转换为 AppErrorInfo。
+ * 大文本文件（超过 read_file 上限且为已知文本扩展名）返回"骨架"，
+ * 由文本渲染器经 open_read_session 会话分块读取（Rust 未就绪时渲染器降级提示）。
  */
 import { invoke } from '@tauri-apps/api/core'
 import type { AppErrorInfo, DocumentMeta, DocumentSource, ReadFileResult } from '../types'
+import { isTextFileExtension } from '../types/nightly'
 import { isTauri } from './platformService'
 
 /** 前端兜底的大小限制（与 Rust 侧一致） */
@@ -50,6 +53,28 @@ export async function openDocument(source: DocumentSource): Promise<{ meta: Docu
       title: '当前环境不支持读取',
       message: '文件读取需要 Tauri 运行环境。请使用 pnpm tauri dev 启动应用。',
       code: 'NO_TAURI_ENV',
+    }
+  }
+
+  // 大文本文件（超过 read_file 上限）：返回"骨架"（content 为空 + size），
+  // 由文本渲染器经 open_read_session / read_range 会话分块读取；
+  // Rust 会话命令未就绪时渲染器显示明确降级提示（不白屏、不抛错）
+  if (isTextFileExtension(source.extension)) {
+    const fileMeta = await readFileMetadata(source.path)
+    if (fileMeta?.size && fileMeta.size > MAX_TEXT_BYTES) {
+      const meta: DocumentMeta = {
+        source,
+        size: fileMeta.size,
+        modifiedAt: fileMeta.modifiedAt,
+        isBinary: false,
+      }
+      const result: ReadFileResult = {
+        content: '',
+        size: fileMeta.size,
+        modifiedAt: fileMeta.modifiedAt,
+        isBinary: false,
+      }
+      return { meta, result }
     }
   }
 
