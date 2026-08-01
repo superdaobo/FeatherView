@@ -5,7 +5,7 @@
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import { isTauri } from './platformService'
 
-export const DEFAULT_WINDOW_TITLE = 'FeatherView / 轻阅'
+export const DEFAULT_WINDOW_TITLE = '览匣 FeatherView'
 
 /** 设置窗口标题（Tauri 环境设置原生标题；浏览器开发模式回退 document.title） */
 export function setWindowTitle(title: string): void {

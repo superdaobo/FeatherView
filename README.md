@@ -1,10 +1,10 @@
-# FeatherView / 轻阅
+# 览匣 FeatherView
 
 [![Build](https://github.com/superdaobo/FeatherView/actions/workflows/build.yml/badge.svg)](https://github.com/superdaobo/FeatherView/actions/workflows/build.yml)
 [![Release](https://img.shields.io/github/v/release/superdaobo/FeatherView)](https://github.com/superdaobo/FeatherView/releases)
 [![License](https://img.shields.io/github/license/superdaobo/FeatherView)](LICENSE)
 
-轻量、本地优先、无账号、无广告的 Markdown 与常见文件阅读器。
+览匣（FeatherView）是一款以快速文件预览为核心的轻量本地文件工具箱。打开、预览、浏览、管理本地文件，所有操作默认在本地完成。
 
 基于 Tauri 2 + Vue 3 构建，支持 Windows（Android / iOS 架构兼容，后续版本发布）。
 

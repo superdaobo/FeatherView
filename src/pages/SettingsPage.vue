@@ -266,7 +266,7 @@ function clearReadingPositions(): void {
           关于
         </h2>
         <div class="about-box">
-          <p><strong>FeatherView 轻阅</strong> v0.1.1</p>
+          <p><strong>览匣 FeatherView</strong> v0.1.1</p>
           <p class="about-text">
             轻量、本地优先的 Markdown 与文件阅读器。<br>
             应用默认在本地处理文件，不会上传、分析或收集你打开的文件内容。

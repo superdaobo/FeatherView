@@ -27,7 +27,7 @@ const supported = computed(() => supportedExtensions().join('、'))
     </div>
     <h2>暂不支持 .{{ extLabel }} 文件</h2>
     <p>
-      FeatherView 当前支持 Markdown、纯文本、代码/配置文件、JSON 与常见图片格式。
+      览匣 FeatherView 当前支持 Markdown、纯文本、代码/配置文件、JSON 与常见图片格式。
     </p>
     <p class="supported-list">
       支持：{{ supported }}
