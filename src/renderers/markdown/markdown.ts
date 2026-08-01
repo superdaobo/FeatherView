@@ -97,14 +97,13 @@ const md = new MarkdownIt({
 })
 
 md.use(anchor, {
+  // 保留中英文与连字符，保证 id 可被 querySelector 定位
   slugify: (s: string) =>
-    encodeURIComponent(
-      s
-        .trim()
-        .toLowerCase()
-        .replace(/[^\w\u4e00-\u9fa5]+/g, '-')
-        .replace(/^-+|-+$/g, ''),
-    ),
+    s
+      .trim()
+      .toLowerCase()
+      .replace(/[^\w\u4e00-\u9fa5-]+/g, '-')
+      .replace(/^-+|-+$/g, ''),
   permalink: false,
 })
 md.use(taskLists, { enabled: true, label: true })

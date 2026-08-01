@@ -183,8 +183,7 @@
 
 .image-canvas {
   cursor: grab;
-  max-width: none;
-  max-height: none;
+  /* 默认不限尺寸；适应窗口模式由内联 max-width/max-height 控制 */
 }
 
 .image-canvas:active {

@@ -46,8 +46,8 @@ describe('recentFilesService', () => {
   })
 
   it('persists to localStorage and loads back', () => {
-    addRecentFile([], entry('persist.md', 42))
-    addRecentFile([], entry('second.md'))
+    // 链式调用保持记录累积
+    addRecentFile(addRecentFile([], entry('persist.md', 42)), entry('second.md'))
     const loaded = loadRecentFiles()
     expect(loaded.length).toBe(2)
     expect(loaded.find((f) => f.path === 'persist.md')?.size).toBe(42)
