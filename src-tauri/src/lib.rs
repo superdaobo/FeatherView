@@ -33,6 +33,9 @@ pub fn run() {
             commands::system::app_version,
             commands::system::startup_args,
             commands::system::platform_info,
+            commands::uri::read_uri,
+            commands::uri::copy_uri_to_temp,
+            commands::uri::uri_temp_info,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

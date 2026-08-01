@@ -1,0 +1,4 @@
+> 机制：`tauri ios build` 会自动把 `src-tauri/Info.ios.plist` 与生成的
+> `gen/apple/<scheme>/Info.plist`、`bundle.fileAssociations` 生成的 CFBundleDocumentTypes
+> 合并（浅合并：后声明的 key 覆盖先声明的）。此文件只影响 iOS 构建，桌面构建不受影响。
+> ⚠ 不要在本文中声明 `CFBundleDocumentTypes`——会覆盖 fileAssociations 自动生成值（见 2.4 文档第 3 节）。
