@@ -1,0 +1,13 @@
+[package]
+name = "featherview-core"
+version = "0.1.0"
+description = "FeatherView 核心文本处理库：编码检测、二进制判定、分块边界对齐（无 Tauri 依赖）"
+license = "GPL-3.0"
+edition = "2021"
+
+[dependencies]
+encoding_rs = "0.8"
+chardetng = "0.1"
+base64 = "0.22"
+thiserror = "2"
+serde = { version = "1", features = ["derive"] }

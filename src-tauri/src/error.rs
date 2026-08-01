@@ -18,6 +18,11 @@ pub enum AppError {
     BinaryFile,
     #[error("无法识别文件编码")]
     UnknownEncoding,
+    #[error("文件在读取过程中被修改")]
+    // 大文件会话 read_range 检测到文件变化（夜间合同 §2 / §7）
+    FileChanged(String),
+    #[error("读取会话不存在或已关闭")]
+    SessionNotFound,
     #[error("读取文件失败")]
     Io(String),
     #[error("内部错误")]
@@ -35,6 +40,8 @@ impl AppError {
             AppError::TooLarge(_) => "文件体积过大",
             AppError::BinaryFile => "不支持的文本格式",
             AppError::UnknownEncoding => "编码识别失败",
+            AppError::FileChanged(_) => "文件已变更",
+            AppError::SessionNotFound => "读取会话失效",
             AppError::Io(_) => "读取文件失败",
             AppError::Internal(_) => "发生错误",
         }
@@ -54,6 +61,11 @@ impl AppError {
             AppError::UnknownEncoding => {
                 "无法识别该文件的字符编码，暂时无法正确显示内容。".to_string()
             }
+            AppError::FileChanged(_) => {
+                "文件在读取过程中被修改（或替换），当前读取会话已自动关闭。\n请重新打开文件继续阅读。"
+                    .to_string()
+            }
+            AppError::SessionNotFound => "读取会话不存在或已关闭，请重新打开文件。".to_string(),
             AppError::Io(msg) => msg.clone(),
             AppError::Internal(msg) => msg.clone(),
         }
@@ -65,6 +77,8 @@ impl AppError {
             AppError::Io(e) => format!("io error: {e}"),
             AppError::NotFound(e) => format!("not found: {e}"),
             AppError::PermissionDenied(e) => format!("permission denied: {e}"),
+            AppError::FileChanged(e) => format!("file changed: {e}"),
+            AppError::SessionNotFound => "session not found".to_string(),
             other => other.to_string(),
         }
     }
@@ -91,6 +105,8 @@ impl AppError {
             AppError::TooLarge(_) => "FILE_TOO_LARGE",
             AppError::BinaryFile => "FILE_IS_BINARY",
             AppError::UnknownEncoding => "ENCODING_UNKNOWN",
+            AppError::FileChanged(_) => "FILE_CHANGED",
+            AppError::SessionNotFound => "SESSION_NOT_FOUND",
             AppError::Io(_) => "FILE_READ_FAILED",
             AppError::Internal(_) => "INTERNAL",
         }
@@ -125,5 +141,23 @@ mod tests {
         assert_eq!(json["code"], "FILE_IS_BINARY");
         assert_eq!(json["title"], "不支持的文本格式");
         assert!(json["message"].as_str().unwrap().contains("二进制"));
+    }
+
+    #[test]
+    fn file_changed_error_serializes_with_code() {
+        let err = AppError::FileChanged("C:/big.txt".into());
+        assert_eq!(err.code(), "FILE_CHANGED");
+        assert!(err.user_message().contains("已自动关闭"));
+        let json = serde_json::to_value(&err).unwrap();
+        assert_eq!(json["code"], "FILE_CHANGED");
+        assert_eq!(json["title"], "文件已变更");
+    }
+
+    #[test]
+    fn session_not_found_error_serializes_with_code() {
+        let err = AppError::SessionNotFound;
+        assert_eq!(err.code(), "SESSION_NOT_FOUND");
+        let json = serde_json::to_value(&err).unwrap();
+        assert_eq!(json["code"], "SESSION_NOT_FOUND");
     }
 }
