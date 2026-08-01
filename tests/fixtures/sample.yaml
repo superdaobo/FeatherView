@@ -1,0 +1,11 @@
+name: featherview
+version: 0.1.0
+description: 轻量级文件阅读器
+dependencies:
+  - vue
+  - pinia
+  - markdown-it
+features:
+  markdown: true
+  search: true
+  theme: system
