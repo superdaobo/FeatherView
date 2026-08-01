@@ -1,0 +1,24 @@
+[package]
+name = "featherview"
+version = "0.1.0"
+description = "FeatherView - a lightweight local-first file reader"
+authors = ["superdaobo"]
+edition = "2021"
+
+[lib]
+name = "featherview_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-dialog = "2"
+tauri-plugin-opener = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+encoding_rs = "0.8"
+chardetng = "0.1"
+base64 = "0.22"
+thiserror = "2"
