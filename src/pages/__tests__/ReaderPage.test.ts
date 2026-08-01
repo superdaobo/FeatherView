@@ -3,21 +3,26 @@ import { createPinia, setActivePinia } from 'pinia'
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import ReaderPage from '../ReaderPage.vue'
 import { useDocumentStore } from '../../stores/document'
+import { useTabsStore } from '../../stores/tabs'
 import { useSettingsStore } from '../../stores/settings'
 import { setupRenderers } from '../../renderers'
 import { useToast } from '../../composables/useToast'
 import { getDocumentIdentity } from '../../services/platformService'
 import { clearPositions, savePosition } from '../../services/readingPositionService'
 import { DEFAULT_WINDOW_TITLE } from '../../services/windowService'
-import type { DocumentMeta, ReadingPositionRecord } from '../../types'
+import type { DocumentMeta, DocumentSource, ReadingPositionRecord } from '../../types'
 
+const { pushMock } = vi.hoisted(() => ({ pushMock: vi.fn() }))
 vi.mock('vue-router', () => ({
   useRouter: () => ({
-    push: vi.fn(),
+    push: pushMock,
     back: vi.fn(),
     currentRoute: { value: { name: 'reader' } },
   }),
 }))
+
+const { invokeMock } = vi.hoisted(() => ({ invokeMock: vi.fn() }))
+vi.mock('@tauri-apps/api/core', () => ({ invoke: invokeMock }))
 
 const MD_PATH = 'C:/docs/readme.md'
 const MOCK_HEIGHT = 2000
@@ -88,13 +93,24 @@ async function getMarkdownBody(wrapper: ReturnType<typeof mount>): Promise<HTMLE
   return undefined
 }
 
+function makeSource(name: string, path: string): DocumentSource {
+  return { id: `id-${name}`, name, extension: 'md', path }
+}
+
 describe('ReaderPage interactions', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
     localStorage.clear()
     clearPositions()
+    pushMock.mockReset()
     setupRenderers()
     document.title = DEFAULT_WINDOW_TITLE
+    invokeMock.mockReset()
+    invokeMock.mockImplementation(async (cmd: string) => {
+      if (cmd === 'file_metadata') return { size: 100, modifiedAt: undefined, isFile: true }
+      if (cmd === 'read_file') return { content: `内容 ${Math.random()}`, size: 100, isBinary: false }
+      throw new Error(`unknown command: ${cmd}`)
+    })
   })
 
   it('restores scroll position after render when record exists', async () => {
@@ -198,7 +214,7 @@ describe('ReaderPage interactions', () => {
     setupStoreReady()
     const wrapper = mount(ReaderPage)
     await settle()
-    expect(document.title).toBe('readme.md — FeatherView')
+    expect(document.title).toBe('readme.md — 览匣 FeatherView')
     wrapper.unmount()
   })
 
@@ -207,5 +223,76 @@ describe('ReaderPage interactions', () => {
     store.status = 'loading'
     const ok = await store.open(makeMeta().source)
     expect(ok).toBe(false)
+  })
+})
+
+describe('ReaderPage tabs', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia())
+    localStorage.clear()
+    clearPositions()
+    pushMock.mockReset()
+    setupRenderers()
+    document.title = DEFAULT_WINDOW_TITLE
+    invokeMock.mockReset()
+    invokeMock.mockImplementation(async (cmd: string) => {
+      if (cmd === 'file_metadata') return { size: 100, modifiedAt: undefined, isFile: true }
+      if (cmd === 'read_file') return { content: `内容 ${Math.random()}`, size: 100, isBinary: false }
+      throw new Error(`unknown command: ${cmd}`)
+    })
+    ;(window as unknown as Record<string, unknown>).__TAURI_INTERNALS__ = {}
+  })
+
+  it('shows the tab strip and activates a tab on click', async () => {
+    const tabs = useTabsStore()
+    await tabs.openTab(makeSource('a.md', 'C:/docs/a.md'))
+    await flushPromises()
+    await tabs.openTab(makeSource('b.md', 'C:/docs/b.md'))
+    await flushPromises()
+
+    const wrapper = mount(ReaderPage)
+    await settle()
+    expect(wrapper.findAll('.tab-item').length).toBe(2)
+    expect(wrapper.findAll('.tab-item')[1].classes()).toContain('active')
+
+    await wrapper.findAll('.tab-item')[0].trigger('click')
+    await settle()
+    expect(tabs.activeTabId).toBe(tabs.tabs[0].tabId)
+    expect(wrapper.findAll('.tab-item')[0].classes()).toContain('active')
+    wrapper.unmount()
+  })
+
+  it('closes the active tab and activates the neighbor', async () => {
+    const tabs = useTabsStore()
+    await tabs.openTab(makeSource('a.md', 'C:/docs/a.md'))
+    await flushPromises()
+    await tabs.openTab(makeSource('b.md', 'C:/docs/b.md'))
+    await flushPromises()
+
+    const wrapper = mount(ReaderPage)
+    await settle()
+    await wrapper.findAll('.tab-close')[1].trigger('click')
+    await settle()
+
+    expect(tabs.tabs.length).toBe(1)
+    expect(tabs.tabs[0].source.name).toBe('a.md')
+    expect(tabs.activeTabId).toBe(tabs.tabs[0].tabId)
+    wrapper.unmount()
+  })
+
+  it('navigates home when the last tab is closed', async () => {
+    const tabs = useTabsStore()
+    await tabs.openTab(makeSource('a.md', 'C:/docs/a.md'))
+    await flushPromises()
+
+    const wrapper = mount(ReaderPage)
+    await settle()
+    await wrapper.find('.tab-close').trigger('click')
+    await settle()
+
+    expect(tabs.tabs.length).toBe(0)
+    expect(tabs.activeTabId).toBeNull()
+    expect(pushMock).toHaveBeenCalledWith('/')
+    wrapper.unmount()
   })
 })

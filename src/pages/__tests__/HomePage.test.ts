@@ -3,6 +3,7 @@ import { createPinia, setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import HomePage from '../HomePage.vue'
 import { useRecentFilesStore } from '../../stores/recentFiles'
+import { useFavoritesStore } from '../../stores/favorites'
 
 // mock vue-router
 vi.mock('vue-router', () => ({
@@ -18,7 +19,7 @@ describe('HomePage', () => {
 
   it('shows empty state when no recent files', () => {
     const wrapper = mount(HomePage)
-    expect(wrapper.text()).toContain('FeatherView')
+    expect(wrapper.text()).toContain('览匣 FeatherView')
     expect(wrapper.text()).toContain('还没有打开过文件')
     expect(wrapper.find('.btn-open').exists()).toBe(true)
   })
@@ -83,5 +84,27 @@ describe('HomePage', () => {
     expect(wrapper.text()).toContain('支持的文件类型')
     expect(wrapper.text()).toContain('.md')
     expect(wrapper.text()).toContain('.json')
+  })
+
+  it('shows the folder browsing entry', () => {
+    const wrapper = mount(HomePage)
+    expect(wrapper.text()).toContain('打开文件夹')
+    expect(wrapper.find('.btn-open').exists()).toBe(true)
+  })
+
+  it('renders favorites section with items', async () => {
+    const favorites = useFavoritesStore()
+    favorites.toggle({ id: '1', name: 'a.md', extension: 'md', path: 'C:/a.md' })
+    favorites.toggle({ id: '2', name: 'b.md', extension: 'md', path: 'C:/b.md' })
+
+    const wrapper = mount(HomePage)
+    expect(wrapper.text()).toContain('收藏')
+    expect(wrapper.findAll('.favorite-item').length).toBe(2)
+    expect(wrapper.text()).toContain('a.md')
+    expect(wrapper.text()).toContain('b.md')
+
+    // 取消收藏
+    await wrapper.findAll('.favorite-remove')[0].trigger('click')
+    expect(favorites.items.length).toBe(1)
   })
 })
