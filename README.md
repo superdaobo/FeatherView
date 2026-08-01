@@ -164,7 +164,7 @@ pnpm tauri ios init
 | base64 | MIT / Apache-2.0 |
 | tauri-plugin-dialog / opener | MIT / Apache-2.0 |
 
-本项目遵循 MIT 许可证，详见 [LICENSE](LICENSE)。
+本项目遵循 GPL-3.0 许可证，详见 [LICENSE](LICENSE)。
 
 ## 隐私说明
 
