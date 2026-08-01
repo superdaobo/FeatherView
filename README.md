@@ -16,6 +16,9 @@ FeatherView 是一款本地文件阅读器：启动快速、界面克制，打�
 ## 当前 MVP 功能
 
 - **首页**：打开文件（按钮 / 拖入窗口 / `Ctrl+O`）、最近打开列表（最多 20 条、失效提示、单条删除、清空）、支持格式说明、空状态
+- **Windows 文件关联**（v0.1.1）：`.md` `.markdown` `.mdown` `.txt` `.log` `.json` `.yaml` `.yml` `.toml` 可通过「打开方式」或双击使用 FeatherView
+- **单实例打开**（v0.1.1）：应用已运行时双击文件，由现有窗口打开并聚焦，不产生第二个实例
+- **阅读位置记忆**（v0.1.1）：Markdown / 文本 / 代码 / JSON 自动保存并恢复上次阅读位置（可在设置中关闭或清除）
 - **Markdown 阅读**：标题锚点、自动目录、任务列表、表格、引用、代码高亮与复制、相对路径图片、外部链接系统浏览器打开、缺失图片占位
 - **纯文本 / 日志**：行号开关、自动换行、等宽字体、大文本截断保护
 - **代码与配置文件**：20+ 语言按需注册的语法高亮、行号、自动换行、复制全文
@@ -102,6 +105,13 @@ pnpm tauri dev
 pnpm tauri build
 ```
 
+### Windows 文件关联说明（v0.1.1）
+
+- 安装后可通过右键「打开方式」为 `.md` / `.txt` / `.json` 等核心文档格式选择 FeatherView
+- 安装器只注册可用性，**不会**未经确认替换任何默认应用
+- 卸载时由安装器自动清理关联
+- 若文件关联未生效，检查「设置 → 应用 → 默认应用 → 按文件类型指定默认应用」
+
 ## 质量检查
 
 ```bash
@@ -134,13 +144,21 @@ pnpm tauri ios init
 | `Ctrl+Shift+T` | 切换主题 |
 | `Esc` | 关闭搜索 / 抽屉 / 弹窗 |
 
+## 阅读位置（v0.1.1）
+
+- 默认开启「记住阅读位置」：关闭应用后重新打开同一文档，自动回到上次阅读位置
+- 保存时机：滚动防抖（500ms）、切换文件前、窗口关闭前；最多 150 条，自动淘汰最旧
+- 可在「设置 → 阅读」中关闭，或一键清除全部记录
+- 数据仅保存在本机 localStorage，不会上传
+
 ## 已知限制
 
 - 文本文件完整读取上限 10MB、二进制 50MB，超大文件暂不支持（分块读取在路线图中）
-- 未实现大文件虚拟滚动（超过 200 万字符的文本自动截断预览）
+- 一次只能打开一个文件（多标签在路线图中）
 - 未实现 PDF / Office / EPUB（渲染器接口已预留）
-- 未实现文件夹浏览、多标签页、文件关联（右键打开）
+- 图片阅读位置不记忆缩放/平移状态
 - Android / iOS 安装包尚未构建
+- 文件关联需在 Windows 实机安装后验证（见 `docs/v0.1.1-manual-qa.md`）
 
 ## 下一阶段计划
 
@@ -179,9 +197,15 @@ FeatherView 默认在本地处理文件。
 - 最近文件记录与阅读设置仅保存在本机 localStorage
 - 日志中不包含文件内容
 
+| 项 | 值 |
+| --- | --- |
+| 版本 | v0.1.1 |
+| 安装包 | `FeatherView_0.1.1_x64-setup.exe` |
+| Release | https://github.com/superdaobo/FeatherView/releases |
+| 变更记录 | [CHANGELOG.md](CHANGELOG.md) |
+
 ## 构建产物体积
 
 - 前端首屏 bundle：约 129 KB（gzip 48 KB），渲染器全部懒加载
-- Windows 可执行文件（GitHub Actions Release 构建）：约 3.1 MB
-- Windows NSIS 安装包（GitHub Actions Release 构建）：约 1.3 MB
-- 安装包可从 [Releases](https://github.com/superdaobo/FeatherView/releases) 下载
+- v0.1.0：NSIS 安装包 1.29 MB / 可执行文件 3.12 MB（GitHub Actions Release 构建）
+- v0.1.1：体积见 Release 页与开发报告（新增 single-instance 插件约 0.1 MB）
