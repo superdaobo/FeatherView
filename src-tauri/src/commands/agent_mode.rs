@@ -498,7 +498,10 @@ fn read_request(stream: &mut TcpStream) -> io::Result<HttpRequest> {
 
     let mut request_line = String::new();
     if reader.read_line(&mut request_line)? == 0 {
-        return Err(io::Error::new(io::ErrorKind::UnexpectedEof, "empty request"));
+        return Err(io::Error::new(
+            io::ErrorKind::UnexpectedEof,
+            "empty request",
+        ));
     }
     let mut parts = request_line.split_whitespace();
     let method = parts.next().unwrap_or("").to_string();
@@ -517,7 +520,7 @@ fn read_request(stream: &mut TcpStream) -> io::Result<HttpRequest> {
         if reader.read_line(&mut line)? == 0 {
             break;
         }
-        let trimmed = line.trim_end_matches(|c| c == '\r' || c == '\n');
+        let trimmed = line.trim_end_matches(['\r', '\n']);
         if trimmed.is_empty() {
             break;
         }
@@ -576,8 +579,10 @@ mod tests {
 
     /// 建一个临时 fixture-root（清理旧目录）。
     fn temp_root(tag: &str) -> PathBuf {
-        let dir = std::env::temp_dir()
-            .join(format!("featherview-agent-test-{tag}-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!(
+            "featherview-agent-test-{tag}-{}",
+            std::process::id()
+        ));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
         dir

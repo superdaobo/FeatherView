@@ -6,6 +6,10 @@ use tauri::{Emitter, Manager};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    #[cfg(any(debug_assertions, feature = "agent-mode"))]
+    if let Err(e) = commands::agent_mode::start_if_requested() {
+        eprintln!("[agent-mode] failed to start: {e}");
+    }
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
@@ -23,6 +27,9 @@ pub fn run() {
             commands::file::read_file,
             commands::file::file_exists,
             commands::file::file_metadata,
+            commands::file::open_read_session,
+            commands::file::read_range,
+            commands::file::close_read_session,
             commands::system::app_version,
             commands::system::startup_args,
             commands::system::platform_info,

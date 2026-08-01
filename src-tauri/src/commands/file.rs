@@ -15,9 +15,9 @@
 use crate::document::{self, ReadFileResult};
 use crate::error::AppError;
 use std::collections::HashMap;
-use std::sync::LazyLock;
 use std::io::{Read, Seek, SeekFrom};
 use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::LazyLock;
 use std::sync::Mutex;
 use std::time::Instant;
 
@@ -51,7 +51,8 @@ struct SessionSnapshot {
 }
 
 /// 活跃会话表（进程级）。
-static SESSIONS: LazyLock<Mutex<HashMap<String, ReadSession>>> = LazyLock::new(|| Mutex::new(HashMap::new()));
+static SESSIONS: LazyLock<Mutex<HashMap<String, ReadSession>>> =
+    LazyLock::new(|| Mutex::new(HashMap::new()));
 /// sessionId 自增序列。
 static SESSION_SEQ: AtomicU64 = AtomicU64::new(0);
 
@@ -325,12 +326,18 @@ fn verify_unchanged(snapshot: &SessionSnapshot) -> Result<(), AppError> {
 fn compute_read_range(encoding: &str, offset: u64, length: u64, file_len: u64) -> (u64, u64) {
     let enc = encoding.to_ascii_lowercase();
     let (start, end) = match enc.as_str() {
-        "utf-8" | "utf-8-bom" => (offset.saturating_sub(3), (offset + length + 4).min(file_len)),
+        "utf-8" | "utf-8-bom" => (
+            offset.saturating_sub(3),
+            (offset + length + 4).min(file_len),
+        ),
         "utf-16le" | "utf-16be" => (
             offset.saturating_sub(4) & !1,
             ((offset + length + 4).min(file_len)) & !1,
         ),
-        "gbk" | "gb18030" => (offset.saturating_sub(4), (offset + length + 4).min(file_len)),
+        "gbk" | "gb18030" => (
+            offset.saturating_sub(4),
+            (offset + length + 4).min(file_len),
+        ),
         _ => (offset, (offset + length).min(file_len)),
     };
     (start, end.max(start))
@@ -585,7 +592,11 @@ fn utf8_char_len_at(bytes: &[u8], i: usize) -> Option<usize> {
         0xF0..=0xF4 => 4,
         _ => return None,
     };
-    if i + len <= bytes.len() && bytes[i + 1..i + len].iter().all(|&x| is_utf8_continuation(x)) {
+    if i + len <= bytes.len()
+        && bytes[i + 1..i + len]
+            .iter()
+            .all(|&x| is_utf8_continuation(x))
+    {
         Some(len)
     } else {
         None
@@ -723,7 +734,10 @@ mod tests {
                 break;
             }
             offset = r.next_offset;
-            assert!(offset <= file_len, "next_offset 越界: {offset} > {file_len}");
+            assert!(
+                offset <= file_len,
+                "next_offset 越界: {offset} > {file_len}"
+            );
         }
         out
     }
