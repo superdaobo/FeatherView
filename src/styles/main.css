@@ -1,0 +1,317 @@
+/* ============ FeatherView 全局样式与主题 ============ */
+
+:root {
+  --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Microsoft YaHei',
+    'PingFang SC', 'Noto Sans CJK SC', 'Helvetica Neue', Arial, sans-serif;
+  --font-serif: Georgia, 'Times New Roman', 'Songti SC', 'SimSun', serif;
+  --font-mono: 'Cascadia Code', Consolas, 'JetBrains Mono', 'Courier New', monospace;
+
+  --radius: 8px;
+  --radius-sm: 5px;
+  --toolbar-height: 48px;
+  --statusbar-height: 28px;
+  --sidebar-width: 240px;
+
+  --transition: 120ms ease;
+}
+
+:root[data-theme='light'] {
+  color-scheme: light;
+  --bg: #f7f7f5;
+  --bg-panel: #ffffff;
+  --bg-hover: #f0efec;
+  --bg-active: #e8e7e3;
+  --bg-toolbar: #fbfbfa;
+  --text: #1f2328;
+  --text-secondary: #59636e;
+  --text-faint: #8b949e;
+  --border: #d8d6d1;
+  --border-strong: #c2c0ba;
+  --accent: #2f6fed;
+  --accent-hover: #1f5fd8;
+  --accent-text: #ffffff;
+  --code-bg: #f4f3f0;
+  --code-inline-bg: #efecea;
+  --mark-bg: #ffe58a;
+  --danger: #d64545;
+  --success: #2e9e5b;
+  --shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+  --img-missing-bg: #f0efec;
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --bg: #17181a;
+  --bg-panel: #1e1f22;
+  --bg-hover: #26282c;
+  --bg-active: #2d3035;
+  --bg-toolbar: #1b1c1f;
+  --text: #e3e5e8;
+  --text-secondary: #a8adb4;
+  --text-faint: #6f7680;
+  --border: #33363c;
+  --border-strong: #454952;
+  --accent: #4a83f0;
+  --accent-hover: #6296f3;
+  --accent-text: #ffffff;
+  --code-bg: #141518;
+  --code-inline-bg: #26282c;
+  --mark-bg: #6b5310;
+  --danger: #e05c5c;
+  --success: #45b56e;
+  --shadow: 0 2px 12px rgba(0, 0, 0, 0.35);
+  --img-missing-bg: #26282c;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  background: var(--bg);
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+  user-select: none;
+}
+
+button {
+  font-family: inherit;
+}
+
+/* ============ 通用按钮 ============ */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-panel);
+  color: var(--text);
+  font-size: 13px;
+  cursor: pointer;
+  transition: background var(--transition), border-color var(--transition);
+  user-select: none;
+}
+
+.btn:hover {
+  background: var(--bg-hover);
+  border-color: var(--border-strong);
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-text);
+}
+
+.btn-primary:hover {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+}
+
+.btn-small {
+  padding: 3px 9px;
+  font-size: 12px;
+  border-radius: var(--radius-sm);
+}
+
+.btn-icon {
+  padding: 5px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-icon:hover {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+
+.btn-icon.active {
+  background: var(--bg-active);
+  color: var(--accent);
+}
+
+.icon-btn-label {
+  margin-left: 4px;
+  font-size: 12px;
+}
+
+/* ============ 通用布局 ============ */
+.page {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.toolbar {
+  height: var(--toolbar-height);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 12px;
+  background: var(--bg-toolbar);
+  border-bottom: 1px solid var(--border);
+}
+
+.toolbar-title {
+  font-weight: 600;
+  font-size: 14px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.toolbar-spacer {
+  flex: 1;
+}
+
+.seg {
+  display: inline-flex;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.seg button {
+  border: none;
+  background: var(--bg-panel);
+  color: var(--text-secondary);
+  padding: 5px 12px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.seg button.active {
+  background: var(--bg-active);
+  color: var(--text);
+  font-weight: 600;
+}
+
+/* ============ 滚动条 ============ */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 5px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-faint);
+  background-clip: content-box;
+  border: 2px solid transparent;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* ============ 阅读滚动区 ============ */
+.reader-scroll {
+  overflow-y: auto;
+  overflow-x: hidden;
+  flex: 1;
+  min-height: 0;
+}
+
+/* ============ 空状态 ============ */
+.empty-state {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  color: var(--text-secondary);
+  padding: 40px;
+  text-align: center;
+}
+
+.empty-state .empty-icon {
+  font-size: 44px;
+}
+
+/* ============ Toast ============ */
+.toast-container {
+  position: fixed;
+  top: 56px;
+  right: 16px;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.toast {
+  pointer-events: auto;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow);
+  padding: 10px 14px;
+  min-width: 220px;
+  max-width: 380px;
+  animation: toast-in 160ms ease;
+}
+
+.toast-error {
+  border-left-color: var(--danger);
+}
+
+.toast-success {
+  border-left-color: var(--success);
+}
+
+.toast-title {
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.toast-message {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-top: 3px;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateX(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}

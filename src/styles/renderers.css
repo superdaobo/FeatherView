@@ -1,0 +1,253 @@
+/* ============ 文本 / 代码 / JSON 查看器样式 ============ */
+
+.text-viewer,
+.code-viewer,
+.json-viewer {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+.text-content,
+.code-content {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 16px 20px;
+  user-select: text;
+}
+
+.text-line {
+  display: flex;
+  min-height: 1.6em;
+}
+
+.text-line .line-num,
+.code-line .line-num {
+  flex-shrink: 0;
+  width: 3.2em;
+  text-align: right;
+  padding-right: 12px;
+  color: var(--text-faint);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.6;
+  user-select: none;
+}
+
+.text-line .line-text {
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+.text-content.wrap-on .plain-pre,
+.code-pre.wrap-on {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.plain-pre {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 13.5px;
+  line-height: 1.7;
+  white-space: pre;
+  color: var(--text);
+}
+
+.mono .line-text,
+.mono .plain-pre {
+  font-family: var(--font-mono);
+  font-size: 13.5px;
+}
+
+.truncate-notice {
+  padding: 8px 16px;
+  background: var(--bg-hover);
+  border-bottom: 1px solid var(--border);
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+/* 代码查看器 */
+.code-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-toolbar);
+  font-size: 12px;
+  flex-shrink: 0;
+}
+
+.code-lang {
+  color: var(--text-faint);
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+}
+
+.truncate-hint {
+  color: var(--text-faint);
+}
+
+.code-pre {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 13.5px;
+  line-height: 1.7;
+  white-space: pre;
+  color: var(--text);
+}
+
+.code-line {
+  display: block;
+  min-height: 1.7em;
+}
+
+.code-line .line-code {
+  white-space: pre;
+}
+
+.code-pre.wrap-on .code-line .line-code {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* JSON */
+.json-error {
+  color: var(--danger);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 60%;
+}
+
+.json-error-panel {
+  padding: 40px 24px;
+  text-align: center;
+  color: var(--text-secondary);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: center;
+}
+
+.json-error-detail {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-faint);
+  max-width: 560px;
+  word-break: break-all;
+}
+
+/* ============ 图片查看器 ============ */
+
+.image-viewer {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+.image-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-toolbar);
+  flex-shrink: 0;
+}
+
+.image-hint {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--text-faint);
+}
+
+.image-stage {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: auto;
+  background: var(--bg);
+  position: relative;
+  user-select: none;
+}
+
+.image-canvas {
+  cursor: grab;
+  max-width: none;
+  max-height: none;
+}
+
+.image-canvas:active {
+  cursor: grabbing;
+}
+
+.image-info {
+  padding: 5px 14px;
+  border-top: 1px solid var(--border);
+  font-size: 12px;
+  color: var(--text-secondary);
+  flex-shrink: 0;
+  text-align: center;
+}
+
+.image-error {
+  color: var(--text-faint);
+}
+
+/* ============ 不支持类型 ============ */
+
+.unsupported-viewer {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 40px;
+  text-align: center;
+  color: var(--text-secondary);
+}
+
+.unsupported-icon {
+  font-size: 44px;
+}
+
+.unsupported-viewer h2 {
+  color: var(--text);
+  font-size: 18px;
+  margin: 4px 0;
+}
+
+.supported-list {
+  font-size: 12px;
+  color: var(--text-faint);
+  max-width: 480px;
+}
+
+.unsupported-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+/* ============ 搜索高亮 ============ */
+
+.search-mark {
+  background: var(--mark-bg);
+  border-radius: 2px;
+  padding: 0 1px;
+}
+
+.search-mark.current {
+  outline: 2px solid var(--accent);
+}
