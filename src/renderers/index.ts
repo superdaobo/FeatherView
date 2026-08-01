@@ -51,6 +51,30 @@ export function setupRenderers(): void {
     component: defineAsyncComponent(() => import('./image/ImageViewer.vue')),
   })
 
+  registerRenderer({
+    id: 'pdf',
+    name: 'PDF 阅读器',
+    extensions: ['pdf'],
+    canHandle: () => false,
+    component: defineAsyncComponent(() => import('./pdf/PdfViewer.vue')),
+  })
+
+  registerRenderer({
+    id: 'csv',
+    name: 'CSV 表格阅读器',
+    extensions: ['csv', 'tsv'],
+    canHandle: () => false,
+    component: defineAsyncComponent(() => import('./csv/CsvViewer.vue')),
+  })
+
+  registerRenderer({
+    id: 'archive',
+    name: '压缩包内容列表',
+    extensions: ['zip', 'tar', 'gz', 'tgz'],
+    canHandle: () => false,
+    component: defineAsyncComponent(() => import('./archive/ArchiveViewer.vue')),
+  })
+
   // 兜底渲染器：永远最后匹配
   registerRenderer({
     id: 'unsupported',
