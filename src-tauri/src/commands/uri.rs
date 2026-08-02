@@ -108,16 +108,16 @@ impl UriError {
 
     pub fn user_message(&self) -> String {
         match self {
-            UriError::NotCached(u) => format!(
-                "该文件（{u}）尚未导入应用缓存。\n请先在应用内重新选择该文件后重试。"
-            ),
+            UriError::NotCached(u) => {
+                format!("该文件（{u}）尚未导入应用缓存。\n请先在应用内重新选择该文件后重试。")
+            }
             UriError::Unsupported(m) => m.clone(),
             UriError::RangeEncodingUnsupported => {
                 "非 UTF-8 编码的文件暂不支持范围读取，请使用全量读取。".to_string()
             }
-            UriError::BridgeUnavailable(m) => format!(
-                "{m}\n（Android 原生桥接尚未启用，content:// 读取能力暂不可用。）"
-            ),
+            UriError::BridgeUnavailable(m) => {
+                format!("{m}\n（Android 原生桥接尚未启用，content:// 读取能力暂不可用。）")
+            }
             UriError::Io(m) => m.clone(),
             UriError::Internal(m) => m.clone(),
         }
@@ -316,9 +316,13 @@ pub async fn uri_temp_info(app: AppHandle, uri: String) -> Result<UriCacheInfo, 
 /// - 范围读取：读入 [offset-4, end+8] 冗余缓冲，UTF-8 严格解码并按字符边界对齐
 ///   （覆盖 [offset, end) 的最小完整字符集）；`next_offset` 为实际输出末尾。
 ///   非 UTF-8 内容返回 `URI_RANGE_ENCODING_UNSUPPORTED`（请全量读取）。
-fn read_path_range(path: &Path, offset: Option<u64>, length: Option<u32>) -> Result<UriReadResult, UriError> {
-    let meta = std::fs::metadata(path)
-        .map_err(|e| UriError::Io(format!("{}: {e}", path.display())))?;
+fn read_path_range(
+    path: &Path,
+    offset: Option<u64>,
+    length: Option<u32>,
+) -> Result<UriReadResult, UriError> {
+    let meta =
+        std::fs::metadata(path).map_err(|e| UriError::Io(format!("{}: {e}", path.display())))?;
     if !meta.is_file() {
         return Err(UriError::Io(format!("{} 不是文件", path.display())));
     }
@@ -329,8 +333,8 @@ fn read_path_range(path: &Path, offset: Option<u64>, length: Option<u32>) -> Res
 
     // 全量：与 read_file 语义一致（编码检测覆盖 BOM/UTF-16/GBK 等）
     if start == 0 && end >= size {
-        let bytes = std::fs::read(path)
-            .map_err(|e| UriError::Io(format!("{}: {e}", path.display())))?;
+        let bytes =
+            std::fs::read(path).map_err(|e| UriError::Io(format!("{}: {e}", path.display())))?;
         let is_binary = document::is_binary_by_extension(&path.to_string_lossy())
             .unwrap_or_else(|| document::is_binary_bytes(&bytes));
         if is_binary {
@@ -551,7 +555,10 @@ mod tests {
 
     fn temp_file(name: &str, bytes: &[u8]) -> PathBuf {
         let mut p = std::env::temp_dir();
-        p.push(format!("featherview-uri-test-{name}-{}", std::process::id()));
+        p.push(format!(
+            "featherview-uri-test-{name}-{}",
+            std::process::id()
+        ));
         std::fs::write(&p, bytes).unwrap();
         p
     }
