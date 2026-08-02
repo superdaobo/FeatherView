@@ -1,0 +1,27 @@
+[package]
+name = "windows-preview-handler"
+version = "0.1.0"
+edition = "2021"
+description = "FeatherView Windows Explorer Preview Handler (COM in-process server)"
+license = "MIT OR Apache-2.0"
+
+[lib]
+# cargo 产物名 lanxia_preview_handler.dll；NSIS 集成时重命名为 LanxiaPreviewHandler.dll（合同 §16）
+name = "lanxia_preview_handler"
+crate-type = ["cdylib"]
+
+[dependencies]
+# 版本：2026-10 确认 crates.io 最新稳定 0.62.2（记录于报告 §0.3）
+windows = { version = "0.58", features = [
+    "Win32_Foundation",
+    "Win32_System_Com",
+    "Win32_System_Com_StructuredStorage",
+    "Win32_System_LibraryLoader",
+    "Win32_System_Ole",
+    "Win32_UI_Controls",
+    "Win32_UI_Shell",
+    "Win32_UI_WindowsAndMessaging",
+] }
+
+windows-core = "0.58"
+featherview-core = { path = "../featherview-core" }
