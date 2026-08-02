@@ -268,14 +268,16 @@ jobs:
           cd src-tauri/gen/apple
           APP_NAME=$(ls -d *.xcodeproj | head -n 1 | sed 's/\.xcodeproj$//')
           echo "APP_NAME=$APP_NAME"
-          SCHEME=$(xcodebuild -list -project "$APP_NAME.xcodeproj" 2>/dev/null | grep -oE "[A-Za-z0-9_-]+_iOS" | head -n 1)
+          echo "--- xcodebuild -list output ---"
+          xcodebuild -list -project "$APP_NAME.xcodeproj" 2>&1 || true
+          echo "--- end list ---"
+          SCHEME=$(xcodebuild -list -project "$APP_NAME.xcodeproj" 2>/dev/null | grep -oE "[A-Za-z0-9_-]+_i[Oo][Ss]" | head -n 1 || true)
           if [ -z "$SCHEME" ]; then
-            SCHEME=$(xcodebuild -list -project "$APP_NAME.xcodeproj" 2>/dev/null | grep -oE "[A-Za-z0-9_-]+_ios" | head -n 1)
+            SCHEME=$(xcodebuild -list -project "$APP_NAME.xcodeproj" 2>/dev/null | grep -oE "[A-Za-z0-9_-]+[Ii][Oo][Ss]" | head -n 1 || true)
           fi
           echo "SCHEME=$SCHEME"
           if [ -z "$SCHEME" ]; then
-            echo "scheme not found; xcodebuild -list output:"
-            xcodebuild -list -project "$APP_NAME.xcodeproj"
+            echo "scheme not found"
             exit 1
           fi
           xcodebuild archive \
