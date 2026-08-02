@@ -261,26 +261,47 @@ jobs:
             pnpm tauri ios init
           fi
 
-      - name: Build unsigned app
+      - name: Build unsigned app (xcodebuild archive)
+        shell: bash
         run: |
           set -euo pipefail
-          # tauri ios build 内部驱动 xcodebuild（含 Build Rust 脚本与 plist 合并），
-          # 裸 xcodebuild 在无头 CI 会因 tauri CLI options server 缺失而失败
-          pnpm tauri ios build --no-sign --target aarch64
+          cd src-tauri/gen/apple
+          APP_NAME=$(ls -d *.xcodeproj | head -n 1 | sed 's/\.xcodeproj$//')
+          echo "APP_NAME=$APP_NAME"
+          SCHEME=$(xcodebuild -list -project "$APP_NAME.xcodeproj" 2>/dev/null | grep -oE "[A-Za-z0-9_-]+_iOS" | head -n 1)
+          if [ -z "$SCHEME" ]; then
+            SCHEME=$(xcodebuild -list -project "$APP_NAME.xcodeproj" 2>/dev/null | grep -oE "[A-Za-z0-9_-]+_ios" | head -n 1)
+          fi
+          echo "SCHEME=$SCHEME"
+          if [ -z "$SCHEME" ]; then
+            echo "scheme not found; xcodebuild -list output:"
+            xcodebuild -list -project "$APP_NAME.xcodeproj"
+            exit 1
+          fi
+          xcodebuild archive \
+            -workspace "$APP_NAME.xcodeproj/project.xcworkspace" \
+            -scheme "$SCHEME" \
+            -configuration Release \
+            -sdk iphoneos \
+            -archivePath "$RUNNER_TEMP/FeatherView.xcarchive" \
+            -derivedDataPath "$RUNNER_TEMP/ios-derived" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGN_STYLE=Manual
 
       - name: Package unsigned IPA
+        shell: bash
         run: |
           set -euo pipefail
           mkdir -p dist-nightly
-          APP_DIR="src-tauri/gen/apple/build/arm64"
-          if [ -d "$APP_DIR/FeatherView.app" ]; then
-            APP="$APP_DIR/FeatherView.app"
-          else
-            APP=$(find "$APP_DIR" -maxdepth 2 -name "*.app" -type d | head -n 1)
+          APP=$(find "$RUNNER_TEMP/ios-derived" -maxdepth 3 -name "*.app" -type d | head -n 1)
+          if [ -z "$APP" ] || [ ! -d "$APP" ]; then
+            APP=$(find "$RUNNER_TEMP/FeatherView.xcarchive" -maxdepth 3 -name "*.app" -type d | head -n 1)
           fi
           if [ -z "$APP" ] || [ ! -d "$APP" ]; then
-            echo "no .app found under $APP_DIR"
-            find src-tauri/gen/apple -maxdepth 5 -name "*.app" -type d
+            echo "no .app found"
+            find "$RUNNER_TEMP" -maxdepth 4 -name "*.app" -type d 2>/dev/null | head -n 5
             exit 1
           fi
           mkdir -p Payload
@@ -288,7 +309,6 @@ jobs:
           zip -qry "Lanxia-unsigned.ipa" Payload
           mv "Lanxia-unsigned.ipa" "dist-nightly/FeatherView_${{ github.sha }}_nightly-unsigned.ipa"
           ls -la dist-nightly
-
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
