@@ -226,10 +226,10 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
-  # ---------- iOS 未签名产物（macos-14） ----------
+  # ---------- iOS 未签名产物（macos-26，Xcode 26） ----------
   build-ios:
     needs: check
-    runs-on: macos-14
+    runs-on: macos-26
     steps:
       - uses: actions/checkout@v4
 
