@@ -20,23 +20,29 @@ const options = {
 const port = parseInt(process.env.TAURI_CLI_OPTIONS_PORT || '0', 10);
 
 const server = http.createServer((req, res) => {
+  res.writeHead(400);
+  res.end();
+});
+
+// Upgrade 请求必须用 'upgrade' 事件处理（request 事件不触发）
+server.on('upgrade', (req, socket) => {
   const key = req.headers['sec-websocket-key'];
   if (!key) {
-    res.writeHead(400);
-    res.end();
+    socket.write('HTTP/1.1 400 Bad Request\r\n\r\n');
+    socket.destroy();
     return;
   }
   const accept = crypto
     .createHash('sha1')
     .update(key + WS_GUID)
     .digest('base64');
-  res.writeHead(101, {
-    Upgrade: 'websocket',
-    Connection: 'Upgrade',
-    'Sec-WebSocket-Accept': accept,
-  });
-  res.socket.setNoDelay(true);
-  handleSocket(res.socket);
+  socket.write(
+    'HTTP/1.1 101 Switching Protocols\r\n' +
+      'Upgrade: websocket\r\n' +
+      'Connection: Upgrade\r\n' +
+      'Sec-WebSocket-Accept: ' + accept + '\r\n\r\n',
+  );
+  handleSocket(socket);
 });
 
 function handleSocket(sock) {
@@ -59,7 +65,8 @@ function handleSocket(sock) {
         len = Number(buf.readBigUInt64BE(2));
         off = 10;
       }
-      if (!masked || buf.length < off + 4 + len) return;
+      if (!masked) return; // 客户端帧必须掩码；无掩码直接忽略等待
+      if (buf.length < off + 4 + len) return;
       const mask = buf.subarray(off, off + 4);
       off += 4;
       const payload = Buffer.alloc(len);
