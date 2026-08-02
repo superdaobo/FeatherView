@@ -1,0 +1,16 @@
+[package]
+name = "featherview-core"
+version = "0.1.0"
+edition = "2021"
+description = "FeatherView text reading and encoding detection core (no Tauri dependency)"
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+encoding_rs = "0.8"
+chardetng = "0.1"
+base64 = "0.22"
+thiserror = "2"
+
+# 注意：与 Agent C 在另一 worktree 创建的同名 crate 共享 API 契约
+# （decode_to_utf8 / read_text_preview / is_binary_bytes / is_binary_by_extension），
+# 主 Agent 集成时统一保留一份。

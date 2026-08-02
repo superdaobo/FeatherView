@@ -1,0 +1,14 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/featherview-core",
+    "crates/windows-preview-handler",
+    "crates/preview-host",
+]
+
+# 说明：本文件由 Agent B 在 worktree 内新增，用于三个 crate 独立编译/测试
+# （主仓库根目录原本没有 Cargo.toml，src-tauri 为独立 crate）。
+# 主 Agent 集成时二选一：
+#   1) 保留根 workspace（推荐：预览相关 crate 可独立 `cargo build/test`，CI 也可单独跑）；
+#   2) 删除本文件，把三个 crate 的依赖并入 src-tauri/Cargo.toml（不推荐：cdylib 与主应用
+#      rlib 混编会显著拖慢主应用编译）。

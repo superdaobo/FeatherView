@@ -1,0 +1,16 @@
+[package]
+name = "preview-host"
+version = "0.1.0"
+edition = "2021"
+description = "Test host for the FeatherView Windows Preview Handler"
+license = "MIT OR Apache-2.0"
+
+[[bin]]
+name = "preview-host"
+path = "src/main.rs"
+
+[dependencies]
+windows = { version = "0.58", features = ["Win32_Foundation", "Win32_System_Com", "Win32_System_LibraryLoader", "Win32_UI_Shell", "Win32_UI_WindowsAndMessaging"] }
+encoding_rs = "0.8"
+windows-core = "0.58"
+featherview-core = { path = "../featherview-core" }
