@@ -1,26 +1,31 @@
 <script setup lang="ts">
 /**
- * 首页：产品介绍、打开文件、最近文件列表、支持格式说明。
+ * 首页：产品介绍、打开文件/文件夹、最近文件、收藏、支持格式说明。
  */
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { FolderOpen, History, Trash2, X } from 'lucide-vue-next'
-import { useDocumentStore } from '../stores/document'
+import { Folder, FolderOpen, History, Star, StarOff, Trash2, X } from 'lucide-vue-next'
 import { useRecentFilesStore } from '../stores/recentFiles'
+import { useTabsStore } from '../stores/tabs'
+import { useFavoritesStore } from '../stores/favorites'
 import type { DocumentSource, RecentFile } from '../types'
-import { pickFile } from '../services/platformService'
+import type { FavoriteItem, FolderEntry } from '../types/nightly'
+import { pickFile, createSourceFromPath } from '../services/platformService'
+import { getPlatformCapabilities, listDirectory, pickFolder } from '../services/capabilities'
 import { checkFileExists } from '../services/documentService'
 import { useToast } from '../composables/useToast'
 import { useShortcuts } from '../composables/useShortcuts'
 import { formatDate, formatFileSize } from '../utils'
 
 const router = useRouter()
-const documentStore = useDocumentStore()
 const recentStore = useRecentFilesStore()
+const tabsStore = useTabsStore()
+const favoritesStore = useFavoritesStore()
 const { show } = useToast()
 
 const opening = ref(false)
 const invalidPaths = ref(new Set<string>())
+const capabilities = getPlatformCapabilities()
 
 const formatGroups = [
   { title: 'Markdown', items: '.md · .markdown · .mdown' },
@@ -33,16 +38,9 @@ const formatGroups = [
 async function openSource(source: DocumentSource): Promise<void> {
   opening.value = true
   try {
-    const ok = await documentStore.open(source)
-    if (ok) {
-      void router.push('/reader')
-    } else {
-      show(documentStore.error?.title ?? '打开失败', {
-        message: documentStore.error?.message,
-        kind: 'error',
-        duration: 6000,
-      })
-    }
+    // 统一走标签 store：同源去重激活或新开（错误由 ReaderPage 错误面板展示）
+    await tabsStore.openTab(source)
+    void router.push('/reader')
   } finally {
     opening.value = false
   }
@@ -82,6 +80,62 @@ function clearAll(): void {
   }
 }
 
+// ---------- 收藏 ----------
+async function openFavorite(fav: FavoriteItem): Promise<void> {
+  const exists = await checkFileExists(fav.path)
+  if (!exists) {
+    show(`文件已失效：${fav.name}`, {
+      message: '该文件可能已被移动或删除。',
+      kind: 'error',
+    })
+    return
+  }
+  await openSource({
+    id: fav.path,
+    name: fav.name,
+    extension: fav.extension,
+    path: fav.path,
+    size: fav.size,
+  })
+}
+
+function clearFavorites(): void {
+  if (favoritesStore.items.length === 0) return
+  if (window.confirm('确定清空所有收藏吗？')) {
+    favoritesStore.clearAll()
+  }
+}
+
+// ---------- 文件夹浏览（P1；Rust list_dir 未就绪时降级提示） ----------
+const folderPath = ref<string | null>(null)
+const folderEntries = ref<FolderEntry[] | null>(null)
+const folderError = ref<string | null>(null)
+const folderLoading = ref(false)
+
+async function openFolder(): Promise<void> {
+  const dir = await pickFolder()
+  if (!dir) return
+  folderPath.value = dir
+  folderEntries.value = null
+  folderError.value = null
+  folderLoading.value = true
+  try {
+    const entries = await listDirectory(dir)
+    if (entries === null) {
+      folderError.value = '文件夹浏览暂不可用：当前构建未启用目录读取能力（list_dir）。'
+    } else {
+      folderEntries.value = entries
+    }
+  } finally {
+    folderLoading.value = false
+  }
+}
+
+function openFolderFile(entry: FolderEntry): void {
+  if (entry.isDir) return
+  void openSource(createSourceFromPath(entry.path, entry.size))
+}
+
 useShortcuts({
   onOpenFile: () => {
     void openFromPicker()
@@ -97,7 +151,7 @@ useShortcuts({
           🪶
         </div>
         <div>
-          <h1>FeatherView <span class="brand-cn">轻阅</span></h1>
+          <h1>览匣 <span class="brand-cn">FeatherView</span></h1>
           <p class="brand-desc">
             轻量、本地优先的 Markdown 与文件阅读器
           </p>
@@ -115,19 +169,144 @@ useShortcuts({
 
     <main class="home-main">
       <section class="hero">
-        <button
-          class="btn btn-primary btn-open"
-          type="button"
-          :disabled="opening"
-          @click="openFromPicker"
-        >
-          <FolderOpen :size="18" />
-          打开文件
-          <kbd class="kbd">Ctrl+O</kbd>
-        </button>
+        <div class="hero-actions">
+          <button
+            class="btn btn-primary btn-open"
+            type="button"
+            :disabled="opening"
+            @click="openFromPicker"
+          >
+            <FolderOpen :size="18" />
+            打开文件
+            <kbd class="kbd">Ctrl+O</kbd>
+          </button>
+          <button
+            v-if="capabilities.folderBrowsing"
+            class="btn btn-open"
+            type="button"
+            :disabled="opening"
+            @click="openFolder"
+          >
+            <Folder :size="18" />
+            打开文件夹
+          </button>
+        </div>
         <p class="hero-hint">
           或将文件拖入窗口 · 本地处理，不会上传任何内容
         </p>
+      </section>
+
+      <!-- 文件夹内容 -->
+      <section
+        v-if="folderPath"
+        class="folder-section"
+      >
+        <div class="section-head">
+          <h2 class="section-title">
+            <Folder :size="16" /> {{ folderPath }}
+          </h2>
+        </div>
+        <div
+          v-if="folderLoading"
+          class="empty-state"
+        >
+          <p>正在读取文件夹…</p>
+        </div>
+        <div
+          v-else-if="folderError"
+          class="folder-error"
+        >
+          {{ folderError }}
+        </div>
+        <ul
+          v-else-if="folderEntries"
+          class="folder-list"
+        >
+          <li
+            v-for="entry in folderEntries"
+            :key="entry.path"
+          >
+            <button
+              class="folder-item"
+              type="button"
+              :disabled="entry.isDir"
+              :title="entry.path"
+              @click="openFolderFile(entry)"
+            >
+              <span class="folder-icon">{{ entry.isDir ? '📁' : '📄' }}</span>
+              <span class="folder-name">{{ entry.name }}</span>
+              <span
+                v-if="!entry.isDir && entry.size !== undefined"
+                class="folder-size"
+              >{{ formatFileSize(entry.size) }}</span>
+            </button>
+          </li>
+        </ul>
+      </section>
+
+      <!-- 收藏 -->
+      <section class="favorites-section">
+        <div class="section-head">
+          <h2 class="section-title">
+            <Star :size="16" /> 收藏
+          </h2>
+          <button
+            v-if="favoritesStore.items.length > 0"
+            class="btn-icon"
+            type="button"
+            title="清空收藏"
+            @click="clearFavorites"
+          >
+            <Trash2 :size="16" />
+          </button>
+        </div>
+
+        <div
+          v-if="favoritesStore.items.length === 0"
+          class="empty-state"
+        >
+          <div class="empty-icon">
+            ⭐
+          </div>
+          <p>还没有收藏</p>
+          <p class="empty-hint">
+            在阅读页点击星标即可收藏文件
+          </p>
+        </div>
+
+        <ul
+          v-else
+          class="favorite-list"
+        >
+          <li
+            v-for="fav in favoritesStore.items"
+            :key="fav.path"
+            class="favorite-item"
+          >
+            <button
+              class="favorite-main"
+              type="button"
+              @click="openFavorite(fav)"
+            >
+              <span class="favorite-ext">.{{ fav.extension || '?' }}</span>
+              <span class="favorite-info">
+                <span class="favorite-name">{{ fav.name }}</span>
+                <span class="favorite-meta">
+                  {{ formatDate(fav.addedAt) }}
+                  <template v-if="fav.size !== undefined"> · {{ formatFileSize(fav.size) }}</template>
+                </span>
+              </span>
+            </button>
+            <button
+              class="btn-icon favorite-remove"
+              type="button"
+              title="取消收藏"
+              @click="favoritesStore.remove(fav.path)"
+            >
+              <StarOff :size="15" />
+            </button>
+          </li>
+        </ul>
       </section>
 
       <section class="recent-section">
@@ -214,7 +393,7 @@ useShortcuts({
     </main>
 
     <footer class="home-footer">
-      FeatherView v0.1.0 · 本地离线阅读 · 无账号无广告
+      览匣 FeatherView v0.1.0 · 本地离线阅读 · 无账号无广告
     </footer>
   </div>
 </template>
@@ -293,6 +472,13 @@ useShortcuts({
   gap: 10px;
 }
 
+.hero-actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
 .btn-open {
   padding: 12px 26px;
   font-size: 15px;
@@ -313,6 +499,157 @@ useShortcuts({
   color: var(--text-faint);
   font-size: 12px;
   margin: 0;
+}
+
+/* 文件夹 */
+.folder-section {
+  margin-top: 18px;
+}
+
+.folder-error {
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-panel);
+  color: var(--text-secondary);
+  font-size: 12.5px;
+}
+
+.folder-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: var(--bg-panel);
+}
+
+.folder-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 14px;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  background: none;
+  cursor: pointer;
+  text-align: left;
+  font-size: 13px;
+  color: var(--text);
+}
+
+.folder-item:last-child {
+  border-bottom: none;
+}
+
+.folder-item:hover:not(:disabled) {
+  background: var(--bg-hover);
+}
+
+.folder-item:disabled {
+  cursor: default;
+  opacity: 0.85;
+}
+
+.folder-icon {
+  flex-shrink: 0;
+  font-size: 14px;
+}
+
+.folder-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  min-width: 0;
+}
+
+.folder-size {
+  font-size: 11.5px;
+  color: var(--text-faint);
+  flex-shrink: 0;
+}
+
+/* 收藏 */
+.favorites-section {
+  margin-top: 18px;
+}
+
+.favorite-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: var(--bg-panel);
+}
+
+.favorite-item {
+  display: flex;
+  align-items: center;
+  border-bottom: 1px solid var(--border);
+}
+
+.favorite-item:last-child {
+  border-bottom: none;
+}
+
+.favorite-item:hover {
+  background: var(--bg-hover);
+}
+
+.favorite-main {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  text-align: left;
+  min-width: 0;
+}
+
+.favorite-ext {
+  flex-shrink: 0;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--accent);
+  background: var(--bg-hover);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 2px 6px;
+  max-width: 90px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.favorite-info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.favorite-name {
+  font-size: 14px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.favorite-meta {
+  font-size: 11.5px;
+  color: var(--text-faint);
+  margin-top: 2px;
+}
+
+.favorite-remove {
+  margin-right: 8px;
+  flex-shrink: 0;
 }
 
 .recent-section {

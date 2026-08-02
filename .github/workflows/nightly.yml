@@ -125,6 +125,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          pnpm build
           pnpm lint
           pnpm typecheck
           pnpm test
@@ -145,11 +146,11 @@ jobs:
           Copy-Item $exe.FullName "dist-nightly/FeatherView_${{ github.sha }}_nightly-x64-setup.exe" -Force
           Copy-Item "src-tauri/target/release/featherview.exe" "dist-nightly/FeatherView_${{ github.sha }}_nightly-x64.exe" -Force
 
-          # 体积报告（写入 job summary）
-          "## 产物体积" | Out-File -Append -Encoding utf8 $env:GITHUB_STEP_SUMMARY
+          # artifact size report (job summary)
+          "## Artifact Sizes" | Out-File -Append -Encoding utf8 $env:GITHUB_STEP_SUMMARY
           Get-ChildItem dist-nightly | ForEach-Object {
             $mb = [math]::Round($_.Length / 1MB, 2)
-            "- {0} — {1} MB" -f $_.Name, $mb | Out-File -Append -Encoding utf8 $env:GITHUB_STEP_SUMMARY
+            "- {0} - {1} MB" -f $_.Name, $mb | Out-File -Append -Encoding utf8 $env:GITHUB_STEP_SUMMARY
           }
 
       - name: Upload artifacts
@@ -226,10 +227,10 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
-  # ---------- iOS 未签名产物（macos-14） ----------
+  # ---------- iOS 未签名产物（macos-26，Xcode 26） ----------
   build-ios:
     needs: check
-    runs-on: macos-14
+    runs-on: macos-26
     steps:
       - uses: actions/checkout@v4
 
@@ -261,29 +262,69 @@ jobs:
             pnpm tauri ios init
           fi
 
-      - name: Build unsigned app (xcodebuild)
+      - name: Build unsigned app (xcodebuild archive)
+        shell: bash
         run: |
           set -euo pipefail
+
+          # ---- tauri CLI options server（参考成绩查询 tauri-app 的 ios-testflight.yml）----
+          # tauri 2.11 生成的 xcodeproj 的 Build Rust Script 通过
+          # $TMPDIR/<identifier>-server-addr 读取 CLI 构建配置；裸 xcodebuild 必须自行提供。
+          export TMPDIR="$PWD/.tauri-ios-tmp"
+          mkdir -p "$TMPDIR"
+          IDENTIFIER="$(node -p "JSON.parse(require('fs').readFileSync('src-tauri/tauri.conf.json','utf8')).identifier")"
+          PORT="$(python3 -c "import socket; s=socket.socket(); s.bind(('127.0.0.1', 0)); print(s.getsockname()[1]); s.close()")"
+          echo "127.0.0.1:$PORT" > "$TMPDIR/${IDENTIFIER}-server-addr"
+          LOG="$TMPDIR/options-server.log"
+          TAURI_CLI_OPTIONS_PORT="$PORT" TMPDIR="$TMPDIR" \
+            node scripts/ci/tauri-cli-options-server.cjs >"$LOG" 2>&1 &
+          OPTIONS_PID=$!
+          trap 'kill $OPTIONS_PID 2>/dev/null || true' EXIT
+          sleep 2
+          kill -0 "$OPTIONS_PID" 2>/dev/null || { echo "options server exited"; cat "$LOG"; exit 1; }
+          echo "options server pid=$OPTIONS_PID port=$PORT"
+
+          # ---- xcodebuild archive ----
           cd src-tauri/gen/apple
-          xcodebuild -project FeatherView.xcodeproj \
-            -scheme FeatherView \
-            -configuration Debug \
-            -destination 'generic/platform=iOS' \
+          APP_NAME=$(ls -d *.xcodeproj | head -n 1 | sed 's/\.xcodeproj$//')
+          echo "APP_NAME=$APP_NAME"
+          SCHEME=$(xcodebuild -list -project "$APP_NAME.xcodeproj" 2>/dev/null | grep -oE "[A-Za-z0-9_-]+_i[Oo][Ss]" | head -n 1 || true)
+          echo "SCHEME=$SCHEME"
+          if [ -z "$SCHEME" ]; then
+            xcodebuild -list -project "$APP_NAME.xcodeproj"
+            exit 1
+          fi
+          xcodebuild archive \
+            -workspace "$APP_NAME.xcodeproj/project.xcworkspace" \
+            -scheme "$SCHEME" \
+            -configuration Release \
+            -sdk iphoneos \
+            -archivePath "$RUNNER_TEMP/FeatherView.xcarchive" \
+            -derivedDataPath "$RUNNER_TEMP/ios-derived" \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGN_IDENTITY="" \
-            CONFIGURATION_BUILD_DIR="$RUNNER_TEMP/ios-build" \
-            build
+            CODE_SIGN_STYLE=Manual
 
       - name: Package unsigned IPA
+        shell: bash
         run: |
           set -euo pipefail
-          mkdir -p dist-nightly Payload
-          cp -R "$RUNNER_TEMP/ios-build/FeatherView.app" "Payload/览匣.app"
+          mkdir -p dist-nightly
+          APP=$(find "$RUNNER_TEMP/ios-derived" -maxdepth 3 -name "*.app" -type d | head -n 1)
+          if [ -z "$APP" ] || [ ! -d "$APP" ]; then
+            APP=$(find "$RUNNER_TEMP/FeatherView.xcarchive" -maxdepth 3 -name "*.app" -type d | head -n 1)
+          fi
+          if [ -z "$APP" ] || [ ! -d "$APP" ]; then
+            echo "no .app found"
+            find "$RUNNER_TEMP" -maxdepth 4 -name "*.app" -type d 2>/dev/null | head -n 5
+            exit 1
+          fi
+          mkdir -p Payload
+          cp -R "$APP" "Payload/览匣.app"
           zip -qry "Lanxia-unsigned.ipa" Payload
           mv "Lanxia-unsigned.ipa" "dist-nightly/FeatherView_${{ github.sha }}_nightly-unsigned.ipa"
           ls -la dist-nightly
-
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:

@@ -15,3 +15,4 @@ declare module 'markdown-it-task-lists' {
   function taskLists(md: MarkdownIt, options?: TaskListsOptions): void
   export = taskLists
 }
+

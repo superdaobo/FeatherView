@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <!--
+    LSSupportsOpeningDocumentsInPlace = false（P0 策略，显式声明默认行为）：
+    iOS 在用户通过"文件"App 打开文档时，把文件**拷贝到本应用沙盒
+    Documents/Inbox/**，再把该拷贝的 file:// URL 交给应用。
+    拷贝已在沙盒内，Rust read_file(path) 直接可读，无需 Security Scoped Resource 桥接。
+    若未来改为 true（原地打开原始文件），必须先实现 ios_access.rs 桥接
+    （startAccessingSecurityScopedResource），否则读取会因无权限失败。
+  -->
+  <key>LSSupportsOpeningDocumentsInPlace</key>
+  <false/>
+
+  <!--
+    UIFileSharingEnabled：允许"文件"App 显示本应用的 Documents 目录
+    （用户可向应用投递文件 / 导出应用内文件）。对 Inbox 拷贝语义无影响。
+  -->
+  <key>UIFileSharingEnabled</key>
+  <true/>
+</dict>
+</plist>
