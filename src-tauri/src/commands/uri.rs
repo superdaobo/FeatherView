@@ -26,6 +26,8 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 use tauri::AppHandle;
+#[cfg(target_os = "android")]
+use tauri::Manager;
 
 use crate::document;
 
