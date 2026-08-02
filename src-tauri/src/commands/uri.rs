@@ -16,6 +16,8 @@
 //! Serialize，输出 `{ title, message, code }`，与 AppError 格式一致
 //! （前端 documentService.normalizeError 直接兼容）。
 
+#[cfg(target_os = "android")]
+use std::sync::OnceLock;
 use std::{
     collections::HashMap,
     fs::File,
