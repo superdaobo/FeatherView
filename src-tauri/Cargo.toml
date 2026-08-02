@@ -25,4 +25,6 @@ base64 = "0.22"
 thiserror = "2"
 
 [features]
+default = ["custom-protocol"]
+custom-protocol = ["tauri/custom-protocol"]
 agent-mode = []
