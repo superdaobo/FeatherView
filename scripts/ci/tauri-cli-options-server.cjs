@@ -1,4 +1,4 @@
-﻿// 零依赖 tauri CLI options server（WebSocket JSON-RPC）
+// 零依赖 tauri CLI options server（WebSocket JSON-RPC）
 // 供裸 xcodebuild 的 tauri Build Rust Script 获取构建配置。
 // 协议：HTTP Upgrade + RFC6455 文本帧（仅需响应 jsonrpsee 的 options 请求）。
 'use strict';
@@ -10,7 +10,7 @@ const WS_GUID = '258EAFA5-E914-47DA-95CA-C5AB0DC85B11';
 const options = {
   dev: false,
   features: ['custom-protocol'],
-  args: ['--lib', '--release', '--features', 'custom-protocol'],
+  args: ['--lib', '--features', 'custom-protocol'],
   noise_level: 'Polite',
   vars: {},
   config: [],
