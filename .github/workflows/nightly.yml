@@ -270,16 +270,21 @@ jobs:
           # tauri 2.11 生成的 xcodeproj 的 Build Rust Script 通过
           # $TMPDIR/<identifier>-server-addr 读取 CLI 构建配置；裸 xcodebuild 必须自行提供。
           export TMPDIR="$PWD/.tauri-ios-tmp"
-          mkdir -p "$TMPDIR"
-          npm install ws --no-save --no-audit --no-fund >/dev/null 2>&1 || true
+          mkdir -p "$TMPDIR" "$TMPDIR/wsdep"
+          (cd "$TMPDIR/wsdep" && npm install ws --no-save --no-audit --no-fund >/dev/null 2>&1) || \
+            (cd "$TMPDIR/wsdep" && pnpm add ws --no-lockfile >/dev/null 2>&1) || true
+          ls "$TMPDIR/wsdep/node_modules/ws" >/dev/null 2>&1 || { echo "ws not installed"; find "$TMPDIR/wsdep" -maxdepth 3 -name "ws" -type d | head -n 3; exit 1; }
           IDENTIFIER="$(node -p "JSON.parse(require('fs').readFileSync('src-tauri/tauri.conf.json','utf8')).identifier")"
           PORT="$(python3 -c "import socket; s=socket.socket(); s.bind(('127.0.0.1', 0)); print(s.getsockname()[1]); s.close()")"
           echo "127.0.0.1:$PORT" > "$TMPDIR/${IDENTIFIER}-server-addr"
           LOG="$TMPDIR/options-server.log"
-          TAURI_CLI_OPTIONS_PORT="$PORT" TMPDIR="$TMPDIR" NODE_PATH="$PWD/node_modules"             node scripts/ci/tauri-cli-options-server.cjs >"$LOG" 2>&1 &
+          TAURI_CLI_OPTIONS_PORT="$PORT" TMPDIR="$TMPDIR" NODE_PATH="$TMPDIR/wsdep/node_modules" \
+            node scripts/ci/tauri-cli-options-server.cjs >"$LOG" 2>&1 &
           OPTIONS_PID=$!
           trap 'kill $OPTIONS_PID 2>/dev/null || true' EXIT
-          sleep 1
+          sleep 2
+          kill -0 "$OPTIONS_PID" 2>/dev/null || { echo "options server exited"; cat "$LOG"; exit 1; }
+          echo "options server pid=$OPTIONS_PID port=$PORT"
 
           # ---- xcodebuild archive ----
           cd src-tauri/gen/apple
