@@ -265,19 +265,30 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+
+          # ---- tauri CLI options server（参考成绩查询 tauri-app 的 ios-testflight.yml）----
+          # tauri 2.11 生成的 xcodeproj 的 Build Rust Script 通过
+          # $TMPDIR/<identifier>-server-addr 读取 CLI 构建配置；裸 xcodebuild 必须自行提供。
+          export TMPDIR="$PWD/.tauri-ios-tmp"
+          mkdir -p "$TMPDIR"
+          npm install ws --no-save --no-audit --no-fund >/dev/null 2>&1 || true
+          IDENTIFIER="$(node -p "JSON.parse(require('fs').readFileSync('src-tauri/tauri.conf.json','utf8')).identifier")"
+          PORT="$(python3 -c "import socket; s=socket.socket(); s.bind(('127.0.0.1', 0)); print(s.getsockname()[1]); s.close()")"
+          echo "127.0.0.1:$PORT" > "$TMPDIR/${IDENTIFIER}-server-addr"
+          LOG="$TMPDIR/options-server.log"
+          TAURI_CLI_OPTIONS_PORT="$PORT" TMPDIR="$TMPDIR" NODE_PATH="$PWD/node_modules"             node scripts/ci/tauri-cli-options-server.cjs >"$LOG" 2>&1 &
+          OPTIONS_PID=$!
+          trap 'kill $OPTIONS_PID 2>/dev/null || true' EXIT
+          sleep 1
+
+          # ---- xcodebuild archive ----
           cd src-tauri/gen/apple
           APP_NAME=$(ls -d *.xcodeproj | head -n 1 | sed 's/\.xcodeproj$//')
           echo "APP_NAME=$APP_NAME"
-          echo "--- xcodebuild -list output ---"
-          xcodebuild -list -project "$APP_NAME.xcodeproj" 2>&1 || true
-          echo "--- end list ---"
           SCHEME=$(xcodebuild -list -project "$APP_NAME.xcodeproj" 2>/dev/null | grep -oE "[A-Za-z0-9_-]+_i[Oo][Ss]" | head -n 1 || true)
-          if [ -z "$SCHEME" ]; then
-            SCHEME=$(xcodebuild -list -project "$APP_NAME.xcodeproj" 2>/dev/null | grep -oE "[A-Za-z0-9_-]+[Ii][Oo][Ss]" | head -n 1 || true)
-          fi
           echo "SCHEME=$SCHEME"
           if [ -z "$SCHEME" ]; then
-            echo "scheme not found"
+            xcodebuild -list -project "$APP_NAME.xcodeproj"
             exit 1
           fi
           xcodebuild archive \
