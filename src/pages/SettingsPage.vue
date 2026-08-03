@@ -4,16 +4,112 @@
  * 修改即时生效并持久化。
  */
 import { useRouter } from 'vue-router'
-import { ArrowLeft, Sun, Moon, Monitor } from 'lucide-vue-next'
+import { ref } from 'vue'
+import { ArrowLeft, Sun, Moon, Monitor, ScanEye, Link2 } from 'lucide-vue-next'
+import { invoke } from '@tauri-apps/api/core'
 import { useSettingsStore } from '../stores/settings'
 import { useToast } from '../composables/useToast'
 import { clearPositions } from '../services/readingPositionService'
+import { isTauri } from '../services/platformService'
 import type { ReaderSettings } from '../types'
 
+console.log("[settings] SETUP-RUN isTauri=", isTauri())
 const router = useRouter()
 const settingsStore = useSettingsStore()
 const { show } = useToast()
 
+// ---------- 预览处理器与文件关联 ----------
+const previewStatus = ref<{
+  installed: boolean
+  dllPath?: string
+  extensions: string[]
+}>({ installed: false, extensions: [] })
+const previewBusy = ref(false)
+const previewDllPath = ref('')
+
+const ASSOC_EXTENSIONS = ['md', 'markdown', 'mdown', 'txt', 'log', 'json', 'yaml', 'yml', 'toml']
+
+const assocStatus = ref<Record<string, boolean>>({})
+const assocBusy = ref(false)
+
+async function refreshPreviewStatus(): Promise<void> {
+  if (!isTauri()) return
+  try {
+    const status = await invoke<{ installed: boolean; dllPath?: string; extensions: string[] }>(
+      'preview_handler_status',
+    )
+    previewStatus.value = status
+    const dll = await invoke<string | null>('resolve_preview_dll')
+    previewDllPath.value = dll ?? ''
+  } catch {
+// 忽略：非 Tauri 或命令不可用
+  }
+}
+
+async function refreshAssocStatus(): Promise<void> {
+  if (!isTauri()) return
+  try {
+    const list = await invoke<Array<{ extension: string; associated: boolean }>>(
+      'file_association_status',
+    )
+    const map: Record<string, boolean> = {}
+    for (const item of list) map[item.extension] = item.associated
+    assocStatus.value = map
+  } catch {
+    // 忽略
+  }
+}
+
+async function installPreview(): Promise<void> {
+  previewBusy.value = true
+  try {
+    if (!previewDllPath.value) {
+      show('未找到预览处理器 DLL', { kind: 'error' })
+      return
+    }
+    await invoke('install_preview_handler', { dllPath: previewDllPath.value })
+    show('预览处理器已安装，请刷新资源管理器（或重启后生效）', { kind: 'success', duration: 5000 })
+    await refreshPreviewStatus()
+  } catch (e) {
+    show('安装失败', { message: String(e), kind: 'error' })
+  } finally {
+    previewBusy.value = false
+  }
+}
+
+async function uninstallPreview(): Promise<void> {
+  previewBusy.value = true
+  try {
+    await invoke('uninstall_preview_handler')
+    show('预览处理器已卸载', { kind: 'success' })
+    await refreshPreviewStatus()
+  } catch (e) {
+    show('卸载失败', { message: String(e), kind: 'error' })
+  } finally {
+    previewBusy.value = false
+  }
+}
+
+async function installAssoc(ext: string, on: boolean): Promise<void> {
+  assocBusy.value = true
+  try {
+    if (on) {
+      const exe = await invoke<string>('app_exe_path')
+      await invoke('install_file_association', { exePath: exe, extensions: [ext] })
+    } else {
+      await invoke('remove_file_association', { extensions: [ext] })
+    }
+    await refreshAssocStatus()
+    show(on ? `已关联 .${ext}（打开方式）` : `已取消关联 .${ext}`, { kind: 'success' })
+  } catch (e) {
+    show('操作失败', { message: String(e), kind: 'error' })
+  } finally {
+    assocBusy.value = false
+  }
+}
+
+void refreshPreviewStatus()
+void refreshAssocStatus()
 const themeOptions: Array<{ value: ReaderSettings['theme']; label: string; icon: typeof Sun }> = [
   { value: 'system', label: '跟随系统', icon: Monitor },
   { value: 'light', label: '浅色', icon: Sun },
@@ -263,6 +359,103 @@ function clearReadingPositions(): void {
 
       <section class="settings-section">
         <h2 class="settings-heading">
+          <ScanEye
+            :size="14"
+            style="vertical-align: -2px"
+          />
+          资源管理器预览
+        </h2>
+        <div class="setting-row">
+          <div class="setting-label">
+            <span>Windows 预览处理器</span>
+            <small>选中文件后在资源管理器右侧预览窗格显示内容（Markdown / 文本 / JSON / CSV 等 10 种格式）</small>
+          </div>
+          <div class="preview-state">
+            <span
+              v-if="previewStatus.installed"
+              class="state-badge state-ok"
+            >已安装</span>
+            <span
+              v-else
+              class="state-badge"
+            >未安装</span>
+          </div>
+        </div>
+        <div
+          v-if="previewStatus.dllPath"
+          class="setting-row"
+        >
+          <div class="setting-label">
+            <span>DLL 位置</span>
+            <small class="path-text">{{ previewStatus.dllPath }}</small>
+          </div>
+        </div>
+        <div
+          v-if="previewStatus.extensions.length"
+          class="setting-row"
+        >
+          <div class="setting-label">
+            <span>已注册扩展名</span>
+            <small>{{ previewStatus.extensions.join(' ') }}</small>
+          </div>
+        </div>
+        <div class="setting-row">
+          <div class="setting-label">
+            <span>{{ previewStatus.installed ? '卸载预览处理器' : '安装预览处理器' }}</span>
+            <small v-if="!previewDllPath && !previewStatus.installed">未找到预览 DLL（需随应用安装 lanxia_preview_handler.dll）</small>
+            <small v-else>安装后需刷新资源管理器：任务管理器重启 explorer.exe 或注销重登</small>
+          </div>
+          <button
+            v-if="!previewStatus.installed"
+            class="btn btn-primary btn-small"
+            type="button"
+            :disabled="previewBusy || !previewDllPath"
+            @click="installPreview"
+          >
+            安装
+          </button>
+          <button
+            v-else
+            class="btn btn-small"
+            type="button"
+            :disabled="previewBusy"
+            @click="uninstallPreview"
+          >
+            卸载
+          </button>
+        </div>
+      </section>
+
+      <section class="settings-section">
+        <h2 class="settings-heading">
+          <Link2
+            :size="14"
+            style="vertical-align: -2px"
+          />
+          文件关联（打开方式）
+        </h2>
+        <p class="assoc-hint">
+          让双击或在「打开方式」中可以选择览匣打开以下格式。只注册可用性，不会抢占系统默认程序。
+        </p>
+        <div class="assoc-grid">
+          <label
+            v-for="ext in ASSOC_EXTENSIONS"
+            :key="ext"
+            class="assoc-item"
+          >
+            <span class="assoc-ext">.{{ ext }}</span>
+            <input
+              type="checkbox"
+              :checked="assocStatus[ext] === true"
+              :disabled="assocBusy"
+              @change="installAssoc(ext, ($event.target as HTMLInputElement).checked)"
+            >
+          </label>
+        </div>
+      </section>
+
+      <section class="settings-section">
+        <h2 class="settings-heading">
           关于
         </h2>
         <div class="about-box">
@@ -399,3 +592,63 @@ function clearReadingPositions(): void {
   color: var(--text-faint);
 }
 </style>
+
+.assoc-hint {
+  font-size: 12px;
+  color: var(--text-faint);
+  margin: 8px 0 4px;
+}
+
+.assoc-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+  gap: 8px;
+  padding: 4px 0;
+}
+
+.assoc-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 6px 10px;
+  cursor: pointer;
+}
+
+.assoc-item:hover {
+  background: var(--bg-hover);
+}
+
+.assoc-ext {
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.assoc-item input {
+  accent-color: var(--accent);
+}
+
+.preview-state {
+  flex-shrink: 0;
+}
+
+.state-badge {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 10px;
+  font-size: 12px;
+  background: var(--bg-active);
+  color: var(--text-secondary);
+}
+
+.state-ok {
+  background: color-mix(in srgb, var(--success) 18%, transparent);
+  color: var(--success);
+}
+
+.path-text {
+  word-break: break-all;
+  max-width: 420px;
+}

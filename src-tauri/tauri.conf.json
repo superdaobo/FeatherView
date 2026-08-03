@@ -25,6 +25,7 @@
     }
   },
   "bundle": {
+    "resources": ["resources/lanxia_preview_handler.dll"],
     "active": true,
     "targets": ["nsis"],
     "icon": [

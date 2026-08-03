@@ -44,6 +44,15 @@ pub fn run() {
             commands::uri::read_uri,
             commands::uri::copy_uri_to_temp,
             commands::uri::uri_temp_info,
+            commands::preview::preview_handler_status,
+            commands::preview::install_preview_handler,
+            commands::preview::uninstall_preview_handler,
+            commands::preview::file_association_status,
+            commands::preview::install_file_association,
+            commands::preview::remove_file_association,
+            commands::preview::resolve_preview_dll,
+            commands::preview::app_exe_path,
+            commands::preview::preview_ping,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
